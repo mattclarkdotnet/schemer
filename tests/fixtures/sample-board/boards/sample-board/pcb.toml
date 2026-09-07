@@ -1,0 +1,18 @@
+[board]
+name = "SampleBoard"
+path = "SampleBoard.zen"
+description = "Self-contained Pico 2/DSPi digital ABX module."
+
+[dependencies]
+"components/Diodes_Incorporated/DMG3402L-7" = "0.1.0"
+"components/analog_devices_adum3160" = "0.1.0"
+"components/cax_av_104a_r" = "0.1.0"
+"components/everlight_plr237_t10bk" = "0.1.0"
+"components/everlight_plt237_t10wh" = "0.1.0"
+"components/gct_usb4105" = "0.1.0"
+"components/molex_68784_pigtail" = "0.1.0"
+"components/murata_da101c" = "0.1.0"
+"components/nexperia_74hc14d_653" = "0.1.0"
+"components/raspberry_pi_pico_2" = "0.1.0"
+"components/ss14_power_schottky" = "0.1.0"
+interfaces = "0.1.0"

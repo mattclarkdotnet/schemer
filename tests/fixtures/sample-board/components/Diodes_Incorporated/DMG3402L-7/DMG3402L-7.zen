@@ -1,0 +1,17 @@
+"""DMG3402L-7 30 V logic-level N-channel MOSFET in SOT-23.
+
+The manufacturer datasheet guarantees 85 mOhm maximum on-resistance at
+VGS = 2.5 V and ID = 2 A. Pin mapping is pin 1 gate, pin 2 source and pin 3
+drain. The imported LCSC footprint contains the matching embedded STEP model.
+"""
+
+D = io(Net)
+G = io(Net)
+S = io(Net)
+
+Component(
+    name="DMG3402L-7",
+    symbol=Symbol(library="DMG3402L-7.kicad_sym"),
+    pins={"D": D, "G": G, "S": S},
+    properties={"JLCPCB": "C96614"},
+)

@@ -1,0 +1,52 @@
+"""Analog Devices ADuM3160BRWZ-RL full/low-speed USB digital isolator."""
+
+VBUS1 = io(Power)
+GND1 = io(Ground)
+VDD1 = io(Power)
+PDEN = io(Net)
+SPU = io(Net)
+UD_N = io(Net)
+UD_P = io(Net)
+GND2 = io(Ground)
+DD_P = io(Net)
+DD_N = io(Net)
+PIN = io(Net)
+SPD = io(Net)
+VDD2 = io(Power)
+VBUS2 = io(Power)
+
+Component(
+    name="ADUM3160BRWZ_RL",
+    prefix="U",
+    symbol=Symbol(library="Interface_USB.kicad_sym", name="ADUM3160"),
+    footprint=File("./SOIC-16W_7.5x10.3mm_P1.27mm.kicad_mod"),
+    part=Part(
+        mpn="ADUM3160BRWZ-RL",
+        manufacturer="Analog Devices",
+        datasheet="https://www.analog.com/media/en/technical-documentation/data-sheets/ADuM3160.pdf",
+    ),
+    pins={
+        "VBUS1": VBUS1,
+        "GND1": GND1,
+        "VDD1": VDD1,
+        "PDEN": PDEN,
+        "SPU": SPU,
+        "UD-": UD_N,
+        "UD+": UD_P,
+        "GND2": GND2,
+        "DD+": DD_P,
+        "DD-": DD_N,
+        "PIN": PIN,
+        "SPD": SPD,
+        "VDD2": VDD2,
+        "VBUS2": VBUS2,
+    },
+    properties={
+        "value": "ADUM3160BRWZ-RL",
+        "LCSC": "C284149",
+        "assembly": "JLCPCB Extended SMT; Economic eligibility and assembly stock require quote",
+        "catalog_stock_observed": "4124 on 2026-08-16; not JLC assembly stock",
+        "BOM Comments": "Fixed full-speed USB isolation; 2.2pF typical barrier capacitance",
+    },
+    type="usb_digital_isolator",
+)

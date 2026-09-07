@@ -1,0 +1,32 @@
+"""Everlight PLT237/T10WH 25 Mbit/s horizontal optical transmitter."""
+
+VIN = io(Net)
+VCC = io(Power)
+GND = io(Ground)
+
+Component(
+    name="PLT237_T10WH",
+    prefix="U",
+    symbol=Symbol("./symbols/Connector_Generic.kicad_sym", name="Conn_01x05"),
+    footprint=File("./footprints/PLT237_T10WH.kicad_mod"),
+    part=Part(
+        mpn="PLT237/T10WH",
+        manufacturer="Everlight Electronics",
+        datasheet="./docs/PLT237_T10WH.pdf",
+    ),
+    pins={
+        "Pin_1": VIN,
+        "Pin_2": VCC,
+        "Pin_3": GND,
+        "Pin_4": NotConnected(),
+        "Pin_5": NotConnected(),
+    },
+    properties={
+        "value": "PLT237/T10WH optical S/PDIF output",
+        "LCSC": "C17296340",
+        "assembly": "JLCPCB Extended THT wave solder; Economic PCBA",
+        "JLC_assembly_stock_observed": "115 available on exact JLC listing, 2026-08-09",
+        "BOM Comments": "25 Mbit/s; shared PLR237/T10 mechanical package checked against exact datasheet",
+    },
+    type="optical_transmitter",
+)

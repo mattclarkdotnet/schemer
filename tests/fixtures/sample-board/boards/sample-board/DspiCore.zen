@@ -1,0 +1,146 @@
+"""Socketed Pico 2 DSPi core within the isolated digital domain."""
+
+load(
+    "../../interfaces/NetClasses.zen",
+    "DIGITAL_NETCLASS_IMPEDANCE",
+    "LOGIC_NETCLASS_IMPEDANCE",
+)
+
+Pico2 = Module("../../components/raspberry_pi_pico_2/RaspberryPiPico2.zen")
+PowerSchottky = Module("../../components/ss14_power_schottky/SS14PowerSchottky.zen")
+Resistor = Module("@stdlib/generics/Resistor.zen")
+Capacitor = Module("@stdlib/generics/Capacitor.zen")
+Nmos = Module("../../components/Diodes_Incorporated/DMG3402L-7/DMG3402L-7.zen")
+
+designator_base = config(int)
+
+
+def ref(prefix, offset):
+    return prefix + str(designator_base + offset)
+
+
+# This module owns designator_base through designator_base + 99.
+REF = struct(
+    D_PICO_VSYS=ref("D", 1),
+    R_RUN_PULLUP=ref("R", 1),
+    R_RESET_REQUEST_PULLDOWN=ref("R", 2),
+    R_I2S_BCK_SERIES=ref("R", 3),
+    R_I2S_LRCK_SERIES=ref("R", 4),
+    R_I2S_DOUT_SERIES=ref("R", 5),
+    Q_RUN_ASSERT=ref("Q", 1),
+    A_DSPI=ref("A", 1),
+)
+
+V5_ISO = io(Power)
+DIGITAL_GND = io(Ground)
+SDA = io(Net)
+SCL = io(Net)
+DSP_RESET_REQUEST = io(Net)
+DSP_STATUS = io(Net)
+DSP_I2S_BCK = io(Net)
+DSP_I2S_LRCK = io(Net)
+DSP_I2S_DOUT = io(Net)
+SPDIF_RX = io(Net)
+SPDIF_TX_OPTICAL_A = io(Net)
+SPDIF_TX_OPTICAL_B = io(Net)
+SPDIF_TX_COAX = io(Net)
+PICO_3V3 = io(Power)
+PICO_VSYS = io(Power)
+DSP_RUN_N = Net(impedance=LOGIC_NETCLASS_IMPEDANCE)
+DSP_I2S_BCK_RAW = Net(impedance=DIGITAL_NETCLASS_IMPEDANCE)
+DSP_I2S_LRCK_RAW = Net(impedance=DIGITAL_NETCLASS_IMPEDANCE)
+DSP_I2S_DOUT_RAW = Net(impedance=DIGITAL_NETCLASS_IMPEDANCE)
+
+PowerSchottky(
+    name=REF.D_PICO_VSYS,
+    ANODE=V5_ISO,
+    CATHODE=PICO_VSYS,
+    properties={"submodule": "DspiCore"},
+)
+
+Resistor(
+    name=REF.R_RUN_PULLUP,
+    P1=PICO_VSYS,
+    P2=DSP_RUN_N,
+    value="10kOhm",
+    package="0603",
+    mpn="0603WAF1002T5E",
+    manufacturer="UNI-ROYAL",
+    properties={
+        "LCSC": "C25804",
+        "assembly": "JLCPCB Basic SMT; Economic PCBA",
+        "submodule": "DspiCore",
+    },
+)
+
+Resistor(
+    name=REF.R_RESET_REQUEST_PULLDOWN,
+    P1=DSP_RESET_REQUEST,
+    P2=DIGITAL_GND,
+    value="100kOhm",
+    package="0603",
+    mpn="0603WAF1003T5E",
+    manufacturer="UNI-ROYAL",
+    properties={
+        "LCSC": "C25803",
+        "assembly": "JLCPCB Basic SMT; Economic PCBA",
+        "submodule": "DspiCore",
+    },
+)
+
+Nmos(
+    name=REF.Q_RUN_ASSERT,
+    D=DSP_RUN_N,
+    G=DSP_RESET_REQUEST,
+    S=DIGITAL_GND,
+    properties={"submodule": "DspiCore"},
+)
+
+
+def i2s_series(name, source, output):
+    Resistor(
+        name=name,
+        P1=source,
+        P2=output,
+        value="100Ohm",
+        package="0603",
+        mpn="0603WAF1000T5E",
+        manufacturer="UNI-ROYAL",
+        properties={
+            "LCSC": "C22775",
+            "assembly": "JLCPCB Basic SMT; Economic PCBA",
+            "submodule": "DspiCore",
+        },
+    )
+
+
+i2s_series(REF.R_I2S_BCK_SERIES, DSP_I2S_BCK_RAW, DSP_I2S_BCK)
+i2s_series(REF.R_I2S_LRCK_SERIES, DSP_I2S_LRCK_RAW, DSP_I2S_LRCK)
+i2s_series(REF.R_I2S_DOUT_SERIES, DSP_I2S_DOUT_RAW, DSP_I2S_DOUT)
+
+Pico2(
+    name=REF.A_DSPI,
+    GPIO2=NotConnected(),
+    GPIO3=NotConnected(),
+    GPIO4=SPDIF_RX,
+    GPIO5=NotConnected(),
+    GPIO6=DSP_I2S_DOUT_RAW,
+    GPIO7=DSP_I2S_LRCK_RAW,
+    GPIO8=DSP_I2S_BCK_RAW,
+    GPIO9=NotConnected(),
+    GPIO10=NotConnected(),
+    GPIO11=NotConnected(),
+    GPIO12=SDA,
+    GPIO13=SCL,
+    GPIO18=SPDIF_TX_OPTICAL_B,
+    GPIO19=SPDIF_TX_COAX,
+    GPIO20=SPDIF_TX_OPTICAL_A,
+    GPIO26=NotConnected(),
+    GPIO27=NotConnected(),
+    GPIO28=DSP_STATUS,
+    RUN=DSP_RUN_N,
+    V3V3=PICO_3V3,
+    VSYS=PICO_VSYS,
+    GND=DIGITAL_GND,
+    properties={"submodule": "DspiCore"},
+)

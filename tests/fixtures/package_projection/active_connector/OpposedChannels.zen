@@ -1,0 +1,39 @@
+"""Two connector channels oppose the IC pin order; keep one actual row aligned."""
+
+Resistor = Module("@stdlib/generics/Resistor.zen")
+VCC = Power("VCC")
+GND = Ground("GND")
+INPUT = Net("INPUT")
+IC_INPUT = Net("IC_INPUT")
+IC_A = Net("IC_A")
+IC_B = Net("IC_B")
+OUTPUT_A = Net("OUTPUT_A")
+OUTPUT_B = Net("OUTPUT_B")
+
+Resistor(name="R_IN", value="24", P1=INPUT, P2=IC_INPUT)
+Resistor(name="R_A", value="24", P1=IC_A, P2=OUTPUT_A)
+Resistor(name="R_B", value="24", P1=IC_B, P2=OUTPUT_B)
+Component(
+    name="SOURCE", prefix="J",
+    part=Part(mpn="GENERIC-SOURCE", manufacturer="Generic"),
+    symbol=Symbol(library="ActiveConnector.kicad_sym", name="ACTIVE_CONNECTOR"),
+    footprint=File("ActiveConnector.kicad_mod"),
+    pins={"VCC": VCC, "GND": GND, "SIGNAL": INPUT, "AUX_A": NotConnected(), "AUX_B": NotConnected()},
+    type="connector",
+)
+Component(
+    name="IC", prefix="U",
+    part=Part(mpn="GENERIC-ISOLATOR", manufacturer="Generic"),
+    symbol=Symbol(library="IsolationBarrier.kicad_sym", name="ISOLATION_BARRIER"),
+    footprint=File("ActiveConnector.kicad_mod"),
+    pins={"VCC": VCC, "GND": GND, "SIGNAL": IC_INPUT, "AUX_A": IC_A, "AUX_B": IC_B},
+    type="digital_isolator",
+)
+Component(
+    name="SINK", prefix="J",
+    part=Part(mpn="GENERIC-SINK", manufacturer="Generic"),
+    symbol=Symbol(library="ActiveConnector.kicad_sym", name="ACTIVE_CONNECTOR"),
+    footprint=File("ActiveConnector.kicad_mod"),
+    pins={"VCC": VCC, "GND": GND, "SIGNAL": OUTPUT_B, "AUX_A": OUTPUT_A, "AUX_B": NotConnected()},
+    type="connector",
+)

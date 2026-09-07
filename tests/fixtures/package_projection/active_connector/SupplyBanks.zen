@@ -1,0 +1,21 @@
+"""Separated supply/mode banks: the intervening signal must stay clear."""
+
+Capacitor = Module("@stdlib/generics/Capacitor.zen")
+RAIL_A = Power("RAIL_A")
+RAIL_B = Power("RAIL_B")
+GND = Ground("GND")
+INPUT = Net("INPUT")
+OUTPUT = Net("OUTPUT")
+Component(
+    name="IC", prefix="U", type="digital_isolator",
+    symbol=Symbol("SupplyBanks.kicad_sym", "SUPPLY_BANKS"),
+    footprint=File("IsolationBarrier.kicad_mod"),
+    part=Part(mpn="GENERIC-BANKS", manufacturer="Generic"),
+    pins={
+        "SUPPLY_A": RAIL_A, "MODE_A": RAIL_A, "ENABLE_A": RAIL_A,
+        "SUPPLY_B": RAIL_B, "MODE_B": RAIL_B,
+        "SIGNAL_A": INPUT, "SIGNAL_B": OUTPUT, "GND": GND,
+    },
+)
+Capacitor(name="C_A", value="100nF", P1=RAIL_A, P2=GND)
+Capacitor(name="C_B", value="100nF", P1=RAIL_B, P2=GND)

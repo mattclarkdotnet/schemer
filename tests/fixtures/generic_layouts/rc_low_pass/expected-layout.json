@@ -1,0 +1,16 @@
+{
+  "scenario": "rc_low_pass",
+  "right_of": [
+    ["comp:C1.C", "comp:R1.R"]
+  ],
+  "below": [
+    ["comp:C1.C", "comp:R1.R"]
+  ],
+  "near": [
+    ["comp:C1.C", "comp:R1.R", 500]
+  ],
+  "rotations": {
+    "comp:R1.R": 270,
+    "comp:C1.C": 0
+  }
+}

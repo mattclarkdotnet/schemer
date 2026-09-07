@@ -1,0 +1,40 @@
+{
+  "scenario": "common_power_branch_with_local_bypass",
+  "above": [
+    ["comp:FB1.FB", "comp:U1.U"],
+    ["comp:C1.C", "comp:U1.U"]
+  ],
+  "left_to_right": [
+    ["comp:C1.C", "comp:FB1.FB"]
+  ],
+  "right_of": [
+    ["comp:C2.C", "comp:U1.U"]
+  ],
+  "different_y": [
+    ["comp:C1.C", "comp:C2.C"],
+    ["comp:FB1.FB", "comp:C2.C"]
+  ],
+  "rotations": {
+    "comp:U1.U": 0,
+    "comp:FB1.FB": 90,
+    "comp:C1.C": 0,
+    "comp:C2.C": 0
+  },
+  "roles": {
+    "comp:U1.U": "major_anchor",
+    "comp:FB1.FB": "common_power",
+    "comp:C1.C": "common_power",
+    "comp:C2.C": "local_decoupling"
+  },
+  "stages": {
+    "comp:U1.U": "major_anchors",
+    "comp:FB1.FB": "power_structure",
+    "comp:C1.C": "power_structure",
+    "comp:C2.C": "power_structure"
+  },
+  "owners": {
+    "comp:FB1.FB": "comp:U1.U",
+    "comp:C1.C": "comp:U1.U",
+    "comp:C2.C": "comp:U1.U"
+  }
+}

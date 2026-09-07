@@ -1,0 +1,22 @@
+"""A compound supply branch and an adjacent ground/signal pin pair."""
+
+Resistor = Module("@stdlib/generics/Resistor.zen")
+SOURCE = io(Power)
+GND = io(Ground)
+SIGNAL = io(Net)
+BIAS = io(Net)
+SPARE = io(Net)
+LOCAL = Power("LOCAL")
+RAW = Net("RAW")
+Component(
+    name="IC", prefix="U", type="mcu_module",
+    symbol=Symbol("OrderedPerimeter.kicad_sym", "GENERIC_MODULE"),
+    footprint=File("OrderedPerimeter.kicad_mod"),
+    part=Part(mpn="GENERIC-MODULE", manufacturer="Generic"),
+    pins={"Pin_1": GND, "Pin_2": LOCAL, "Pin_3": SPARE,
+          "Pin_4": NotConnected(), "Pin_5": RAW, "Pin_6": BIAS,
+          "Pin_7": GND, "Pin_8": NotConnected()},
+)
+Resistor(name="FEED", value="10", P1=SOURCE, P2=LOCAL)
+Resistor(name="SERIES", value="100", P1=RAW, P2=SIGNAL)
+Resistor(name="BIAS", value="10k", P1=BIAS, P2=LOCAL)

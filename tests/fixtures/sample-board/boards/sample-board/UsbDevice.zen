@@ -1,0 +1,166 @@
+"""Isolated USB-C UFP to captive Micro-B pigtail implementation."""
+
+load(
+    "../../interfaces/NetClasses.zen",
+    "ClassedGround",
+    "ClassedPower",
+    "GROUND_NETCLASS_IMPEDANCE",
+    "LOGIC_NETCLASS_IMPEDANCE",
+    "POWER_NETCLASS_IMPEDANCE",
+    "USB_DIFFERENTIAL_NETCLASS_IMPEDANCE",
+)
+
+UsbC = Module("../../components/gct_usb4105/Usb4105.zen")
+UsbIsolator = Module("../../components/analog_devices_adum3160/Adum3160BrwzRl.zen")
+Pigtail = Module("../../components/molex_68784_pigtail/Molex68784Pigtail.zen")
+Resistor = Module("@stdlib/generics/Resistor.zen")
+Capacitor = Module("@stdlib/generics/Capacitor.zen")
+
+designator_base = config(int)
+
+
+def ref(prefix, offset):
+    return prefix + str(designator_base + offset)
+
+
+# This module owns designator_base through designator_base + 99.
+REF = struct(
+    J_USB_DEVICE=ref("J", 1),
+    J_USB_PIGTAIL=ref("J", 2),
+    R_CC1=ref("R", 1),
+    R_CC2=ref("R", 2),
+    R_USB_HOST_DP=ref("R", 3),
+    R_USB_HOST_DN=ref("R", 4),
+    R_USB_DEVICE_DP=ref("R", 5),
+    R_USB_DEVICE_DN=ref("R", 6),
+    U_USB_ISOLATOR=ref("U", 1),
+    C_USB_HOST_VDD=ref("C", 1),
+    C_USB_DEVICE_VDD=ref("C", 2),
+)
+
+PICO_VSYS = io(Power)
+DIGITAL_GND = io(Ground)
+
+USB_HOST_VBUS = ClassedPower(impedance=POWER_NETCLASS_IMPEDANCE)
+USB_HOST_GND = ClassedGround(impedance=GROUND_NETCLASS_IMPEDANCE)
+USB_HOST_VDD = ClassedPower(impedance=POWER_NETCLASS_IMPEDANCE)
+USB_HOST_DP_RAW = Net(impedance=USB_DIFFERENTIAL_NETCLASS_IMPEDANCE)
+USB_HOST_DN_RAW = Net(impedance=USB_DIFFERENTIAL_NETCLASS_IMPEDANCE)
+USB_HOST_DP_ISOLATOR = Net(impedance=USB_DIFFERENTIAL_NETCLASS_IMPEDANCE)
+USB_HOST_DN_ISOLATOR = Net(impedance=USB_DIFFERENTIAL_NETCLASS_IMPEDANCE)
+USB_HOST_CC1 = Net(impedance=LOGIC_NETCLASS_IMPEDANCE)
+USB_HOST_CC2 = Net(impedance=LOGIC_NETCLASS_IMPEDANCE)
+USB_HOST_SHIELD = Net()
+
+USB_DEVICE_VDD = ClassedPower(impedance=POWER_NETCLASS_IMPEDANCE)
+USB_DEVICE_DP_ISOLATOR = Net(impedance=USB_DIFFERENTIAL_NETCLASS_IMPEDANCE)
+USB_DEVICE_DN_ISOLATOR = Net(impedance=USB_DIFFERENTIAL_NETCLASS_IMPEDANCE)
+USB_DEVICE_DP_PIGTAIL = Net(impedance=USB_DIFFERENTIAL_NETCLASS_IMPEDANCE)
+USB_DEVICE_DN_PIGTAIL = Net(impedance=USB_DIFFERENTIAL_NETCLASS_IMPEDANCE)
+USB_DEVICE_SHIELD = Net()
+
+UsbC(
+    name=REF.J_USB_DEVICE,
+    VBUS=USB_HOST_VBUS,
+    GND=USB_HOST_GND,
+    DP=USB_HOST_DP_RAW,
+    DN=USB_HOST_DN_RAW,
+    CC1=USB_HOST_CC1,
+    CC2=USB_HOST_CC2,
+    SHIELD=USB_HOST_SHIELD,
+    properties={"submodule": "UsbDevice"},
+)
+
+
+def cc_pulldown(name, cc):
+    Resistor(
+        name=name,
+        P1=cc,
+        P2=USB_HOST_GND,
+        value="5.1kOhm",
+        package="0402",
+        mpn="0402WGF5101TCE",
+        manufacturer="UNI-ROYAL",
+        properties={
+            "LCSC": "C25905",
+            "assembly": "JLCPCB Basic SMT; Economic PCBA",
+            "submodule": "UsbDevice",
+        },
+    )
+
+
+def usb_termination(name, source, sink):
+    Resistor(
+        name=name,
+        P1=source,
+        P2=sink,
+        value="24Ohm",
+        package="0603",
+        mpn="0603WAF240JT5E",
+        manufacturer="UNI-ROYAL",
+        properties={
+            "LCSC": "C4198",
+            "assembly": "JLCPCB Extended SMT; Economic eligibility requires quote",
+            "catalog_stock_observed": "171267 on 2026-08-16; not JLC assembly stock",
+            "submodule": "UsbDevice",
+        },
+    )
+
+
+def usb_bypass(name, supply, ground):
+    Capacitor(
+        name=name,
+        P1=supply,
+        P2=ground,
+        value="100nF",
+        package="0402",
+        voltage="16V",
+        dielectric="X7R",
+        mpn="CL05B104KO5NNNC",
+        manufacturer="Samsung Electro-Mechanics",
+        properties={
+            "LCSC": "C1525",
+            "assembly": "JLCPCB Basic SMT; Economic PCBA",
+            "submodule": "UsbDevice",
+        },
+    )
+
+
+cc_pulldown(REF.R_CC1, USB_HOST_CC1)
+cc_pulldown(REF.R_CC2, USB_HOST_CC2)
+
+usb_termination(REF.R_USB_HOST_DP, USB_HOST_DP_RAW, USB_HOST_DP_ISOLATOR)
+usb_termination(REF.R_USB_HOST_DN, USB_HOST_DN_RAW, USB_HOST_DN_ISOLATOR)
+usb_termination(REF.R_USB_DEVICE_DP, USB_DEVICE_DP_ISOLATOR, USB_DEVICE_DP_PIGTAIL)
+usb_termination(REF.R_USB_DEVICE_DN, USB_DEVICE_DN_ISOLATOR, USB_DEVICE_DN_PIGTAIL)
+
+UsbIsolator(
+    name=REF.U_USB_ISOLATOR,
+    VBUS1=USB_HOST_VBUS,
+    GND1=USB_HOST_GND,
+    VDD1=USB_HOST_VDD,
+    PDEN=USB_HOST_VDD,
+    SPU=USB_HOST_VDD,
+    UD_N=USB_HOST_DN_ISOLATOR,
+    UD_P=USB_HOST_DP_ISOLATOR,
+    GND2=DIGITAL_GND,
+    DD_P=USB_DEVICE_DP_ISOLATOR,
+    DD_N=USB_DEVICE_DN_ISOLATOR,
+    PIN=USB_DEVICE_VDD,
+    SPD=USB_DEVICE_VDD,
+    VDD2=USB_DEVICE_VDD,
+    VBUS2=PICO_VSYS,
+    properties={"submodule": "UsbDevice"},
+)
+usb_bypass(REF.C_USB_HOST_VDD, USB_HOST_VDD, USB_HOST_GND)
+usb_bypass(REF.C_USB_DEVICE_VDD, USB_DEVICE_VDD, DIGITAL_GND)
+
+Pigtail(
+    name=REF.J_USB_PIGTAIL,
+    VBUS=NotConnected(),
+    DN=USB_DEVICE_DN_PIGTAIL,
+    DP=USB_DEVICE_DP_PIGTAIL,
+    GND=DIGITAL_GND,
+    SHIELD=USB_DEVICE_SHIELD,
+    properties={"submodule": "UsbDevice"},
+)

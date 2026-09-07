@@ -1,0 +1,51 @@
+{
+  "scenario": "repeated_endpoints_with_parallel_transformer_chain",
+  "bank_continuation": {
+    "component": "TRANSFORMER",
+    "terminal": "PRI",
+    "row": "top"
+  },
+  "local_bypasses": [
+    ["END_A", "PWR", "C_ENDPOINT_A.C", "VDD"],
+    ["END_B", "PWR", "C_ENDPOINT_B.C", "VIO"],
+    ["END_C", "PWR", "C_ENDPOINT_C.C", "VIO"],
+    ["DRIVER", "PWR", "C_DRIVER.C", "VDD"]
+  ],
+  "left_to_right": [
+    ["comp:R_ENDPOINT_A.R", "comp:END_A"],
+    ["comp:R_ENDPOINT_B.R", "comp:END_B"],
+    ["comp:R_ENDPOINT_C.R", "comp:END_C"],
+    ["comp:DRIVER", "comp:R_DRIVER_A.R"],
+    ["comp:R_DRIVER_A.R", "comp:TRANSFORMER"],
+    ["comp:TRANSFORMER", "comp:C_COUPLING.C"],
+    ["comp:C_COUPLING.C", "comp:OUTPUT"]
+  ],
+  "block_paths": [
+    "multi-active-interface",
+    "multi-active-interface/endpoint-channel-bank",
+    "multi-active-interface/endpoint-channel-bank/endpoint-channel-0",
+    "multi-active-interface/endpoint-channel-bank/endpoint-channel-1",
+    "multi-active-interface/endpoint-channel-bank/endpoint-channel-2",
+    "multi-active-interface/parallel-transformer-chain"
+  ],
+  "terminal_rows": [
+    {
+      "left_component": "DRIVER",
+      "left_terminal": "OUT_A",
+      "right_component": "R_DRIVER_A.R",
+      "right_terminal": "1"
+    },
+    {
+      "left_component": "DRIVER",
+      "left_terminal": "OUT_B",
+      "right_component": "R_DRIVER_B.R",
+      "right_terminal": "1"
+    },
+    {
+      "left_component": "DRIVER",
+      "left_terminal": "OUT_C",
+      "right_component": "R_DRIVER_C.R",
+      "right_terminal": "1"
+    }
+  ]
+}

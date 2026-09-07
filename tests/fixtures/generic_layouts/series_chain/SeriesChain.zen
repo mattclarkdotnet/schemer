@@ -1,0 +1,12 @@
+"""Three generic resistors in a simple left-to-right signal chain."""
+
+Resistor = Module("@stdlib/generics/Resistor.zen")
+
+INPUT = io("INPUT", Net, direction="input")
+OUTPUT = io("OUTPUT", Net, direction="output")
+N1 = Net("N1")
+N2 = Net("N2")
+
+Resistor(name="R1", value="1kohms", package="0603", P1=INPUT, P2=N1)
+Resistor(name="R2", value="2kohms", package="0603", P1=N1, P2=N2)
+Resistor(name="R3", value="3kohms", package="0603", P1=N2, P2=OUTPUT)

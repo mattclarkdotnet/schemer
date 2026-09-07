@@ -1,0 +1,29 @@
+"""Generic sequential-pin module whose source symbol uses odd/even rows."""
+
+P1 = io(Net)
+P2 = io(Net)
+P3 = io(Net)
+P4 = io(Net)
+P5 = io(Net)
+P6 = io(Net)
+P7 = io(Net)
+P8 = io(Net)
+
+Component(
+    name="MODULE",
+    prefix="A",
+    symbol=Symbol(library="OrderedPerimeter.kicad_sym", name="GENERIC_MODULE"),
+    footprint=File("OrderedPerimeter.kicad_mod"),
+    part=Part(mpn="GENERIC-MODULE", manufacturer="Generic"),
+    pins={
+        "Pin_1": P1,
+        "Pin_2": P2,
+        "Pin_3": P3,
+        "Pin_4": P4,
+        "Pin_5": P5,
+        "Pin_6": P6,
+        "Pin_7": P7,
+        "Pin_8": P8,
+    },
+    type="mcu_module",
+)

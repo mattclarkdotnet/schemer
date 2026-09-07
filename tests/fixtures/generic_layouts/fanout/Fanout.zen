@@ -1,0 +1,12 @@
+"""One generic resistor feeding two parallel generic resistor branches."""
+
+Resistor = Module("@stdlib/generics/Resistor.zen")
+
+INPUT = io("INPUT", Net, direction="input")
+OUTPUT_A = io("OUTPUT_A", Net, direction="output")
+OUTPUT_B = io("OUTPUT_B", Net, direction="output")
+SPLIT = Net("SPLIT")
+
+Resistor(name="R1", value="1kohms", package="0603", P1=INPUT, P2=SPLIT)
+Resistor(name="R2", value="2kohms", package="0603", P1=SPLIT, P2=OUTPUT_A)
+Resistor(name="R3", value="3kohms", package="0603", P1=SPLIT, P2=OUTPUT_B)

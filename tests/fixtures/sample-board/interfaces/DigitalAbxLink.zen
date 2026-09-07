@@ -1,0 +1,21 @@
+"""Isolated power/control-to-digital-ABX-module electrical contract.
+
+Pin 6 carries an active-high reset request. The digital board owns the local
+open-drain driver for the Pico's active-low RUN input.
+
+The digital module is the source and clock master for the three I2S conductors.
+Every conductor is already in the isolated digital domain before it enters the
+cable; the digital board therefore needs no control-link isolation components.
+"""
+
+DigitalAbxLink = interface(
+    V5_ISO=Power(),
+    DIGITAL_GND=Ground(),
+    SDA=Net(),
+    SCL=Net(),
+    DSP_RESET_REQUEST=Net(),
+    DSP_STATUS=Net(),
+    DSP_I2S_BCK=Net(),
+    DSP_I2S_LRCK=Net(),
+    DSP_I2S_DOUT=Net(),
+)

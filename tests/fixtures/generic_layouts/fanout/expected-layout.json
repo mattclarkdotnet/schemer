@@ -1,0 +1,18 @@
+{
+  "scenario": "signal_fanout",
+  "left_to_right": [
+    ["comp:R1.R", "comp:R2.R"],
+    ["comp:R1.R", "comp:R3.R"]
+  ],
+  "same_x": [
+    ["comp:R2.R", "comp:R3.R"]
+  ],
+  "different_y": [
+    ["comp:R2.R", "comp:R3.R"]
+  ],
+  "rotations": {
+    "comp:R1.R": 270,
+    "comp:R2.R": 270,
+    "comp:R3.R": 270
+  }
+}

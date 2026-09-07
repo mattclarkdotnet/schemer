@@ -1,0 +1,32 @@
+"""Murata DA101C 1:1 through-hole digital-audio transformer."""
+
+PRIMARY_DOT = io(Net)
+PRIMARY_RETURN = io(Net)
+SECONDARY_RETURN = io(Net)
+SECONDARY_DOT = io(Net)
+
+Component(
+    name="DA101C",
+    prefix="T",
+    symbol=Symbol("./symbols/Device.kicad_sym", name="Transformer_1P_1S"),
+    footprint=File("./footprints/DA101C.kicad_mod"),
+    part=Part(
+        mpn="DA101C",
+        manufacturer="Murata Power Solutions",
+        datasheet="./docs/DA101C.pdf",
+    ),
+    pins={
+        "AA": PRIMARY_DOT,
+        "AB": PRIMARY_RETURN,
+        "SA": SECONDARY_RETURN,
+        "SB": SECONDARY_DOT,
+    },
+    properties={
+        "value": "DA101C 1:1 digital-audio transformer",
+        "LCSC": "C6931652",
+        "assembly": "JLCPCB Extended THT wave solder; Economic eligibility requires quote",
+        "catalog_stock_observed": "301 and US$2.8014 quantity one on 2026-08-09; not JLC assembly stock",
+        "BOM Comments": "2 kVrms production test is functional signal isolation, not a safety barrier",
+    },
+    type="transformer",
+)

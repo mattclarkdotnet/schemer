@@ -1,0 +1,216 @@
+"""One optical input, two optical outputs and one isolated coaxial output."""
+
+load("../../interfaces/NetClasses.zen", "DIGITAL_NETCLASS_IMPEDANCE")
+
+OpticalReceiver = Module("../../components/everlight_plr237_t10bk/Plr237T10bk.zen")
+OpticalTransmitter = Module("../../components/everlight_plt237_t10wh/Plt237T10wh.zen")
+Transformer = Module("../../components/murata_da101c/MurataDa101c.zen")
+Rca = Module("../../components/cax_av_104a_r/CaxAv104aR.zen")
+CoaxBuffer = Module("../../components/nexperia_74hc14d_653/Nexperia74hc14d653.zen")
+Resistor = Module("@stdlib/generics/Resistor.zen")
+Capacitor = Module("@stdlib/generics/Capacitor.zen")
+
+designator_base = config(int)
+
+
+def ref(prefix, offset):
+    return prefix + str(designator_base + offset)
+
+
+# This module owns designator_base through designator_base + 99.
+REF = struct(
+    U_OPTICAL_RX=ref("U", 1),
+    U_OPTICAL_TX_A=ref("U", 2),
+    U_OPTICAL_TX_B=ref("U", 3),
+    U_COAX_BUFFER=ref("U", 4),
+    C_OPTICAL_RX=ref("C", 1),
+    C_OPTICAL_TX_A=ref("C", 2),
+    C_OPTICAL_TX_B=ref("C", 3),
+    C_COAX_BUFFER=ref("C", 4),
+    C_COAX_COUPLING=ref("C", 5),
+    R_OPTICAL_RX=ref("R", 1),
+    R_OPTICAL_TX_A=ref("R", 2),
+    R_OPTICAL_TX_B=ref("R", 3),
+    R_COAX_SERIES_1=ref("R", 4),
+    R_COAX_SERIES_2=ref("R", 5),
+    R_COAX_SERIES_3=ref("R", 6),
+    R_COAX_SHUNT=ref("R", 7),
+    T_COAX=ref("T", 1),
+    J_COAX_OUT=ref("J", 1),
+)
+
+PICO_3V3 = io(Power)
+PICO_VSYS = io(Power)
+DIGITAL_GND = io(Ground)
+SPDIF_RX = io(Net)
+SPDIF_TX_OPTICAL_A = io(Net)
+SPDIF_TX_OPTICAL_B = io(Net)
+SPDIF_TX_COAX = io(Net)
+
+OPTICAL_RX_RAW = Net(impedance=DIGITAL_NETCLASS_IMPEDANCE)
+OPTICAL_TX_A_IN = Net(impedance=DIGITAL_NETCLASS_IMPEDANCE)
+OPTICAL_TX_B_IN = Net(impedance=DIGITAL_NETCLASS_IMPEDANCE)
+COAX_PRIMARY = Net(impedance=DIGITAL_NETCLASS_IMPEDANCE)
+COAX_DRIVER_OUT_1 = Net(impedance=DIGITAL_NETCLASS_IMPEDANCE)
+COAX_DRIVER_OUT_2 = Net(impedance=DIGITAL_NETCLASS_IMPEDANCE)
+COAX_DRIVER_OUT_3 = Net(impedance=DIGITAL_NETCLASS_IMPEDANCE)
+COAX_SECONDARY = Net(impedance=DIGITAL_NETCLASS_IMPEDANCE)
+COAX_CENTRE = Net(impedance=DIGITAL_NETCLASS_IMPEDANCE)
+COAX_RETURN = Net(impedance=DIGITAL_NETCLASS_IMPEDANCE)
+
+
+def decoupling(name, supply):
+    Capacitor(
+        name=name,
+        P1=supply,
+        P2=DIGITAL_GND,
+        value="100nF",
+        package="0603",
+        voltage="50V",
+        dielectric="X7R",
+        mpn="CC0603KRX7R9BB104",
+        manufacturer="Yageo",
+        properties={
+            "LCSC": "C14663",
+            "assembly": "JLCPCB Basic SMT; Economic PCBA",
+            "submodule": "SpdifInterfaces",
+        },
+    )
+
+
+def series_100(name, source, sink):
+    Resistor(
+        name=name,
+        P1=source,
+        P2=sink,
+        value="100Ohm",
+        package="0603",
+        mpn="0603WAF1000T5E",
+        manufacturer="UNI-ROYAL",
+        properties={
+            "LCSC": "C22775",
+            "assembly": "JLCPCB Basic SMT; Economic PCBA",
+            "submodule": "SpdifInterfaces",
+        },
+    )
+
+
+OpticalReceiver(
+    name=REF.U_OPTICAL_RX,
+    VCC=PICO_3V3,
+    GND=DIGITAL_GND,
+    VOUT=OPTICAL_RX_RAW,
+    properties={"submodule": "SpdifInterfaces"},
+)
+decoupling(REF.C_OPTICAL_RX, PICO_3V3)
+series_100(REF.R_OPTICAL_RX, OPTICAL_RX_RAW, SPDIF_RX)
+
+series_100(REF.R_OPTICAL_TX_A, SPDIF_TX_OPTICAL_A, OPTICAL_TX_A_IN)
+OpticalTransmitter(
+    name=REF.U_OPTICAL_TX_A,
+    VIN=OPTICAL_TX_A_IN,
+    VCC=PICO_VSYS,
+    GND=DIGITAL_GND,
+    properties={"submodule": "SpdifInterfaces"},
+)
+decoupling(REF.C_OPTICAL_TX_A, PICO_VSYS)
+
+series_100(REF.R_OPTICAL_TX_B, SPDIF_TX_OPTICAL_B, OPTICAL_TX_B_IN)
+OpticalTransmitter(
+    name=REF.U_OPTICAL_TX_B,
+    VIN=OPTICAL_TX_B_IN,
+    VCC=PICO_VSYS,
+    GND=DIGITAL_GND,
+    properties={"submodule": "SpdifInterfaces"},
+)
+decoupling(REF.C_OPTICAL_TX_B, PICO_VSYS)
+
+CoaxBuffer(
+    name=REF.U_COAX_BUFFER,
+    A1=SPDIF_TX_COAX,
+    Y1=COAX_DRIVER_OUT_1,
+    A2=SPDIF_TX_COAX,
+    Y2=COAX_DRIVER_OUT_2,
+    A3=SPDIF_TX_COAX,
+    Y3=COAX_DRIVER_OUT_3,
+    GND=DIGITAL_GND,
+    Y4=NotConnected(),
+    A4=DIGITAL_GND,
+    Y5=NotConnected(),
+    A5=DIGITAL_GND,
+    Y6=NotConnected(),
+    A6=DIGITAL_GND,
+    VCC=PICO_3V3,
+    properties={"submodule": "SpdifInterfaces"},
+)
+decoupling(REF.C_COAX_BUFFER, PICO_3V3)
+
+
+def coax_series(name, source):
+    Resistor(
+        name=name,
+        P1=source,
+        P2=COAX_PRIMARY,
+        value="750Ohm",
+        package="0603",
+        mpn="0603WAF7500T5E",
+        manufacturer="UNI-ROYAL",
+        properties={
+            "LCSC": "C23241",
+            "assembly": "JLCPCB Extended SMT; Economic eligibility requires quote",
+            "catalog_stock_observed": "553660 on 2026-08-10; not JLC assembly stock",
+            "submodule": "SpdifInterfaces",
+        },
+    )
+
+
+coax_series(REF.R_COAX_SERIES_1, COAX_DRIVER_OUT_1)
+coax_series(REF.R_COAX_SERIES_2, COAX_DRIVER_OUT_2)
+coax_series(REF.R_COAX_SERIES_3, COAX_DRIVER_OUT_3)
+Resistor(
+    name=REF.R_COAX_SHUNT,
+    P1=COAX_PRIMARY,
+    P2=DIGITAL_GND,
+    value="110Ohm",
+    package="0603",
+    mpn="0603WAF1100T5E",
+    manufacturer="UNI-ROYAL",
+    properties={
+        "LCSC": "C22781",
+        "assembly": "JLCPCB Extended SMT; Economic eligibility requires quote",
+        "catalog_stock_observed": "41159 on 2026-08-09; not JLC assembly stock",
+        "submodule": "SpdifInterfaces",
+    },
+)
+Transformer(
+    name=REF.T_COAX,
+    PRIMARY_DOT=COAX_PRIMARY,
+    PRIMARY_RETURN=DIGITAL_GND,
+    SECONDARY_RETURN=COAX_RETURN,
+    SECONDARY_DOT=COAX_SECONDARY,
+    properties={"submodule": "SpdifInterfaces"},
+)
+Capacitor(
+    name=REF.C_COAX_COUPLING,
+    P1=COAX_SECONDARY,
+    P2=COAX_CENTRE,
+    value="100nF",
+    package="0603",
+    voltage="50V",
+    dielectric="X7R",
+    mpn="CC0603KRX7R9BB104",
+    manufacturer="Yageo",
+    properties={
+        "LCSC": "C14663",
+        "assembly": "JLCPCB Basic SMT; Economic PCBA",
+        "submodule": "SpdifInterfaces",
+    },
+)
+Rca(
+    name=REF.J_COAX_OUT,
+    CENTRE=COAX_CENTRE,
+    SHELL=COAX_RETURN,
+    properties={"submodule": "SpdifInterfaces"},
+)
+# schemer:hint {"version":1,"id":"coax-return","kind":"local-return","endpoints":[{"component":"J201.CAX_AV_104A_R","pin":"Pin_2"},{"component":"T201.DA101C","pin":"SA"}],"reason":"F1: Draw the secondary return as part of the local transformer-to-connector circuit, beneath its outgoing path."}
+# schemer:hint {"version":1,"id":"primary-return-exit","kind":"pin-exit","endpoints":[{"component":"T201.DA101C","pin":"AB"}],"reason":"F3: Terminate the primary return on its pin axis with a short outward stub instead of a hooked down-and-back route."}

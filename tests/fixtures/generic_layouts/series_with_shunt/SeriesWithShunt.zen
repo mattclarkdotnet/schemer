@@ -1,0 +1,12 @@
+"""A generic two-resistor signal path with a resistive shunt to ground."""
+
+Resistor = Module("@stdlib/generics/Resistor.zen")
+
+INPUT = io("INPUT", Net, direction="input")
+OUTPUT = io("OUTPUT", Net, direction="output")
+GND = io("GND", Ground)
+MID = Net("MID")
+
+Resistor(name="R1", value="1kohms", package="0603", P1=INPUT, P2=MID)
+Resistor(name="R2", value="2kohms", package="0603", P1=MID, P2=OUTPUT)
+Resistor(name="R3", value="10kohms", package="0603", P1=MID, P2=GND)

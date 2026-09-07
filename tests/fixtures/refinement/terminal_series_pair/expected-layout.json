@@ -1,0 +1,18 @@
+{
+  "scenario": "terminal_connector_after_parallel_series_bank",
+  "maximum_gap": 450,
+  "minimum_horizontal_stagger": 100,
+  "left_to_right": [
+    ["comp:R1.R", "comp:J1.PH"],
+    ["comp:R2.R", "comp:J1.PH"]
+  ],
+  "different_x": [
+    ["comp:R1.R", "comp:R2.R"]
+  ],
+  "above": [
+    ["comp:R1.R", "comp:R2.R"]
+  ],
+  "rotations": {
+    "comp:J1.PH": 0
+  }
+}

@@ -1,0 +1,173 @@
+"""Project-wide KiCad netclass selectors and typed supply/return nets."""
+
+load(
+    "@stdlib/board_config.zen",
+    "BASE_4L_NETCLASSES",
+    "BASE_6L_NETCLASSES",
+    "NetClass",
+    "PredefinedSizes",
+    "ViaDimension",
+)
+load("@stdlib/units.zen", "Impedance", "Voltage")
+
+# pcb 0.4.17 emits explicit KiCad netclass patterns by matching each net's
+# impedance field to a NetClass target. The class names describe logical
+# circuit domains and signal roles; assign nets by that meaning rather than by
+# whichever class happens to have matching geometry. Separate classes may
+# intentionally share routing rules so layout can still distinguish their
+# functions. The sub-ohm values below are only selectors, not controlled-
+# impedance requirements. In particular, Power owns
+# regulator feedback, reference and other internal supply-control nets as well
+# as current-carrying rails. USB also needs a dedicated selector: pcb does not
+# propagate a DiffPair interface impedance to its child nets and a plain Net
+# cannot select the standard differential-only 90 ohm class.
+#
+# "Digital" identifies recurring or timing-bearing buses and clocks such as
+# I2C, I2S, SPI and PDM. "Logic" identifies GPIO control and status nets such
+# as selects, enables, reset/status signals and relay requests; these normally
+# remain at a static high or low level between state changes. Keeping the two
+# classes distinct permits different routing and clearance policy without
+# implying that Logic nets are edge-free or may cross a broken return path.
+# "Switched" identifies recurring PWM and switching nodes whose activity must
+# remain visible during placement and noise-sensitive routing decisions.
+#
+# Default-width policy balances resistance against shunt capacitance without
+# using width exceptions to compensate for poor placement: Analog uses 0.25 mm
+# throughout, and any materially long or high-impedance connection instead
+# moves its isolating resistor or next node closer to the source. Digital uses
+# 0.20 mm because its generally longer runs benefit from lower capacitance while
+# retaining manufacturing margin above the selected 0.16 mm process minimum.
+# Power uses 0.40 mm by default; use the existing 0.80 mm routing preset for a
+# current- and voltage-drop-qualified shared feed such as relay-coil V5_DC.
+# HighCurrent remains the separate 4 mm speaker-current policy.
+POWER_NETCLASS_IMPEDANCE = Impedance(0.1)
+GROUND_NETCLASS_IMPEDANCE = Impedance(0.2)
+ANALOG_NETCLASS_IMPEDANCE = Impedance(0.3)
+DIGITAL_NETCLASS_IMPEDANCE = Impedance(0.4)
+LOGIC_NETCLASS_IMPEDANCE = Impedance(0.5)
+SWITCHED_NETCLASS_IMPEDANCE = Impedance(0.6)
+HIGH_CURRENT_NETCLASS_IMPEDANCE = Impedance(0.7)
+USB_DIFFERENTIAL_NETCLASS_IMPEDANCE = Impedance(0.8)
+
+# All ABX routing and ground stitching uses the single JLC-qualified through-
+# via geometry below. Keeping it in the generated board authority prevents
+# obsolete netclass and predefined-size values from returning on regeneration.
+ABX_VIA_DIAMETER = 0.45
+ABX_VIA_DRILL = 0.3
+ABX_PREDEFINED_SIZES = PredefinedSizes(
+    via_dimensions=[ViaDimension(diameter=ABX_VIA_DIAMETER, drill=ABX_VIA_DRILL)],
+)
+ABX_DEFAULT_NETCLASS = NetClass(
+    name="Default",
+    clearance=0.16,
+    track_width=0.16,
+    via_diameter=ABX_VIA_DIAMETER,
+    via_drill=ABX_VIA_DRILL,
+    diff_pair_width=0.2,
+    diff_pair_gap=0.2,
+)
+
+ABX_NETCLASSES = [
+    NetClass(
+        name="Power",
+        clearance=0.2,
+        track_width=0.4,
+        via_diameter=ABX_VIA_DIAMETER,
+        via_drill=ABX_VIA_DRILL,
+        priority=10,
+        single_ended_impedance=POWER_NETCLASS_IMPEDANCE,
+    ),
+    NetClass(
+        name="Ground",
+        clearance=0.2,
+        track_width=0.4,
+        via_diameter=ABX_VIA_DIAMETER,
+        via_drill=ABX_VIA_DRILL,
+        priority=11,
+        single_ended_impedance=GROUND_NETCLASS_IMPEDANCE,
+    ),
+    NetClass(
+        name="Analog",
+        clearance=0.16,
+        track_width=0.25,
+        via_diameter=ABX_VIA_DIAMETER,
+        via_drill=ABX_VIA_DRILL,
+        priority=12,
+        single_ended_impedance=ANALOG_NETCLASS_IMPEDANCE,
+    ),
+    NetClass(
+        name="Digital",
+        clearance=0.2,
+        track_width=0.2,
+        via_diameter=ABX_VIA_DIAMETER,
+        via_drill=ABX_VIA_DRILL,
+        priority=13,
+        single_ended_impedance=DIGITAL_NETCLASS_IMPEDANCE,
+    ),
+    NetClass(
+        name="Logic",
+        clearance=0.16,
+        track_width=0.16,
+        via_diameter=ABX_VIA_DIAMETER,
+        via_drill=ABX_VIA_DRILL,
+        priority=14,
+        single_ended_impedance=LOGIC_NETCLASS_IMPEDANCE,
+    ),
+    NetClass(
+        name="Switched",
+        clearance=0.2,
+        track_width=0.2,
+        via_diameter=ABX_VIA_DIAMETER,
+        via_drill=ABX_VIA_DRILL,
+        priority=15,
+        single_ended_impedance=SWITCHED_NETCLASS_IMPEDANCE,
+    ),
+    NetClass(
+        name="HighCurrent",
+        clearance=0.2,
+        track_width=4.0,
+        via_diameter=ABX_VIA_DIAMETER,
+        via_drill=ABX_VIA_DRILL,
+        priority=16,
+        single_ended_impedance=HIGH_CURRENT_NETCLASS_IMPEDANCE,
+    ),
+    NetClass(
+        name="USB",
+        clearance=0.2,
+        track_width=0.1867,
+        via_diameter=ABX_VIA_DIAMETER,
+        via_drill=ABX_VIA_DRILL,
+        diff_pair_width=0.1867,
+        diff_pair_gap=0.127,
+        priority=17,
+        single_ended_impedance=USB_DIFFERENTIAL_NETCLASS_IMPEDANCE,
+    ),
+]
+
+# Replace the standard-library Default entry while retaining its controlled-
+# impedance classes. Lists are complete because BoardConfig list overrides do
+# not merge individual entries.
+ABX_4L_NETCLASSES = [ABX_DEFAULT_NETCLASS] + BASE_4L_NETCLASSES[1:] + ABX_NETCLASSES
+ABX_6L_NETCLASSES = [ABX_DEFAULT_NETCLASS] + BASE_6L_NETCLASSES[1:] + ABX_NETCLASSES
+
+ClassedPower = builtin.net_type(
+    "Power",
+    symbol=field(
+        Symbol,
+        default=Symbol("@stdlib/kicad-symbols/power.kicad_symdir/VCC.kicad_sym"),
+    ),
+    voltage=field(Voltage | None, default=None),
+    impedance=field(Impedance | None, default=None),
+)
+ClassedGround = builtin.net_type(
+    "Ground",
+    symbol=field(
+        Symbol,
+        default=Symbol("@stdlib/kicad-symbols/power.kicad_symdir/GND.kicad_sym"),
+    ),
+    impedance=field(Impedance | None, default=None),
+)
+ClassedAnalog = builtin.net_type(
+    "Analog",
+    impedance=field(Impedance | None, default=None),
+)

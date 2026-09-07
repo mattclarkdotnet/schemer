@@ -1,0 +1,15 @@
+{
+  "scenario": "repeated_active_channels_with_local_series_support",
+  "minimum_body_clearance": 180,
+  "same_x": [
+    ["comp:ACTIVE_A", "comp:ACTIVE_B", "comp:ACTIVE_C"]
+  ],
+  "same_y": [
+    ["comp:R_A.R", "comp:ACTIVE_A"],
+    ["comp:R_B.R", "comp:ACTIVE_B"],
+    ["comp:R_C.R", "comp:ACTIVE_C"]
+  ],
+  "top_to_bottom": [
+    ["comp:ACTIVE_A", "comp:ACTIVE_B", "comp:ACTIVE_C"]
+  ]
+}

@@ -1,0 +1,36 @@
+"""Generic primary device, shared bias branch and subordinate control input."""
+
+Resistor = Module("@stdlib/generics/Resistor.zen")
+VDD = io("VDD", Power, direction="input")
+GND = io("GND", Ground)
+DRIVE = io("DRIVE", Net, direction="input")
+CONTROL = io("CONTROL", Net, direction="input")
+UPPER = io("UPPER", Net)
+LOWER = io("LOWER", Net)
+SHARED = Net("SHARED")
+
+Component(
+    name="MAIN", prefix="U",
+    symbol=Symbol(library="GenericBlocks.kicad_sym", name="PARALLEL_DRIVER"),
+    footprint=File("GenericBlock.kicad_mod"),
+    part=Part(mpn="GENERIC-MAIN", manufacturer="Generic"),
+    pins={
+        "IN_A": DRIVE, "OUT_A": UPPER, "IN_B": DRIVE, "OUT_B": SHARED,
+        "IN_C": DRIVE, "OUT_C": LOWER, "RET": GND,
+        "NC_A": NotConnected(), "NC_B": NotConnected(), "PWR": VDD,
+    },
+    type="logic_driver",
+)
+# Reuse an existing four-port rectangle as an abstract active-stage test body.
+Component(
+    name="STAGE", prefix="U",
+    symbol=Symbol(library="GenericBlocks.kicad_sym", name="TRANSFORMER"),
+    footprint=File("GenericBlock.kicad_mod"),
+    part=Part(mpn="GENERIC-STAGE", manufacturer="Generic"),
+    pins={"PRI": SHARED, "PRI_RET": GND, "SEC": CONTROL, "SEC_RET": NotConnected()},
+    type="active_stage",
+)
+Resistor(name="BIAS_UP", value="10k", package="0603", P1=UPPER, P2=VDD)
+Resistor(name="BIAS_DOWN", value="10k", package="0603", P1=LOWER, P2=GND)
+Resistor(name="SHARED_BIAS", value="10k", package="0603", P1=SHARED, P2=VDD)
+Resistor(name="CONTROL_BIAS", value="100k", package="0603", P1=CONTROL, P2=GND)

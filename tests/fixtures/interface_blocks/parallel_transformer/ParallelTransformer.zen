@@ -1,0 +1,103 @@
+"""Generic repeated endpoints plus a parallel transformer output chain."""
+
+Resistor = Module("@stdlib/generics/Resistor.zen")
+Capacitor = Module("@stdlib/generics/Capacitor.zen")
+
+VDD = io("VDD", Power, direction="input")
+VIO = io("VIO", Power, direction="input")
+GND = io("GND", Ground)
+ENDPOINT_A = io("ENDPOINT_A", Net, direction="output")
+ENDPOINT_B = io("ENDPOINT_B", Net, direction="output")
+ENDPOINT_C = io("ENDPOINT_C", Net, direction="output")
+DRIVE = io("DRIVE", Net, direction="input")
+
+ENDPOINT_A_LOCAL = Net("ENDPOINT_A_LOCAL")
+ENDPOINT_B_LOCAL = Net("ENDPOINT_B_LOCAL")
+ENDPOINT_C_LOCAL = Net("ENDPOINT_C_LOCAL")
+DRIVER_OUT_A = Net("DRIVER_OUT_A")
+DRIVER_OUT_B = Net("DRIVER_OUT_B")
+DRIVER_OUT_C = Net("DRIVER_OUT_C")
+PRIMARY = Net("PRIMARY")
+SECONDARY = Net("SECONDARY")
+CONNECTOR_SIGNAL = Net("CONNECTOR_SIGNAL")
+CONNECTOR_RETURN = Net("CONNECTOR_RETURN")
+
+Resistor(name="R_ENDPOINT_A", value="100", package="0603", P1=ENDPOINT_A_LOCAL, P2=ENDPOINT_A)
+Resistor(name="R_ENDPOINT_B", value="100", package="0603", P1=ENDPOINT_B_LOCAL, P2=ENDPOINT_B)
+Resistor(name="R_ENDPOINT_C", value="100", package="0603", P1=ENDPOINT_C_LOCAL, P2=ENDPOINT_C)
+Resistor(name="R_DRIVER_A", value="750", package="0603", P1=DRIVER_OUT_A, P2=PRIMARY)
+Resistor(name="R_DRIVER_B", value="750", package="0603", P1=DRIVER_OUT_B, P2=PRIMARY)
+Resistor(name="R_DRIVER_C", value="750", package="0603", P1=DRIVER_OUT_C, P2=PRIMARY)
+Resistor(name="R_SHUNT", value="110", package="0603", P1=PRIMARY, P2=GND)
+
+Capacitor(name="C_ENDPOINT_A", value="100nF", package="0603", P1=VDD, P2=GND)
+Capacitor(name="C_ENDPOINT_B", value="100nF", package="0603", P1=VIO, P2=GND)
+Capacitor(name="C_ENDPOINT_C", value="100nF", package="0603", P1=VIO, P2=GND)
+Capacitor(name="C_DRIVER", value="100nF", package="0603", P1=VDD, P2=GND)
+Capacitor(name="C_COUPLING", value="100nF", package="0603", P1=SECONDARY, P2=CONNECTOR_SIGNAL)
+
+Component(
+    name="END_A",
+    prefix="U",
+    symbol=Symbol(library="GenericBlocks.kicad_sym", name="ENDPOINT"),
+    footprint=File("GenericBlock.kicad_mod"),
+    part=Part(mpn="GENERIC-ENDPOINT-A", manufacturer="Generic"),
+    pins={"SIG": ENDPOINT_A_LOCAL, "PWR": VDD, "RET": GND, "NC_A": NotConnected(), "NC_B": NotConnected()},
+    type="active_endpoint",
+)
+Component(
+    name="END_B",
+    prefix="U",
+    symbol=Symbol(library="GenericBlocks.kicad_sym", name="ENDPOINT"),
+    footprint=File("GenericBlock.kicad_mod"),
+    part=Part(mpn="GENERIC-ENDPOINT-B", manufacturer="Generic"),
+    pins={"SIG": ENDPOINT_B_LOCAL, "PWR": VIO, "RET": GND, "NC_A": NotConnected(), "NC_B": NotConnected()},
+    type="active_endpoint",
+)
+Component(
+    name="END_C",
+    prefix="U",
+    symbol=Symbol(library="GenericBlocks.kicad_sym", name="ENDPOINT"),
+    footprint=File("GenericBlock.kicad_mod"),
+    part=Part(mpn="GENERIC-ENDPOINT-C", manufacturer="Generic"),
+    pins={"SIG": ENDPOINT_C_LOCAL, "PWR": VIO, "RET": GND, "NC_A": NotConnected(), "NC_B": NotConnected()},
+    type="active_endpoint",
+)
+Component(
+    name="DRIVER",
+    prefix="U",
+    symbol=Symbol(library="GenericBlocks.kicad_sym", name="PARALLEL_DRIVER"),
+    footprint=File("GenericBlock.kicad_mod"),
+    part=Part(mpn="GENERIC-DRIVER", manufacturer="Generic"),
+    pins={
+        "IN_A": DRIVE,
+        "OUT_A": DRIVER_OUT_A,
+        "IN_B": DRIVE,
+        "OUT_B": DRIVER_OUT_B,
+        "IN_C": DRIVE,
+        "OUT_C": DRIVER_OUT_C,
+        "RET": GND,
+        "NC_A": NotConnected(),
+        "NC_B": NotConnected(),
+        "PWR": VDD,
+    },
+    type="logic_driver",
+)
+Component(
+    name="TRANSFORMER",
+    prefix="T",
+    symbol=Symbol(library="GenericBlocks.kicad_sym", name="TRANSFORMER"),
+    footprint=File("GenericBlock.kicad_mod"),
+    part=Part(mpn="GENERIC-TRANSFORMER", manufacturer="Generic"),
+    pins={"PRI": PRIMARY, "PRI_RET": GND, "SEC": SECONDARY, "SEC_RET": CONNECTOR_RETURN},
+    type="transformer",
+)
+Component(
+    name="OUTPUT",
+    prefix="J",
+    symbol=Symbol(library="GenericBlocks.kicad_sym", name="CONNECTOR"),
+    footprint=File("GenericBlock.kicad_mod"),
+    part=Part(mpn="GENERIC-CONNECTOR", manufacturer="Generic"),
+    pins={"SIGNAL": CONNECTOR_SIGNAL, "RETURN": CONNECTOR_RETURN},
+    type="connector",
+)

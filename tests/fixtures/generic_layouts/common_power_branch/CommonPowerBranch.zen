@@ -1,0 +1,26 @@
+"""A local IC bypass fed from a shared filtered power branch with bulk storage."""
+
+load("@stdlib/interfaces.zen", "Opamp")
+OperationalAmplifier = Module("@stdlib/generics/OperationalAmplifier.zen")
+Capacitor = Module("@stdlib/generics/Capacitor.zen")
+FerriteBead = Module("@stdlib/generics/FerriteBead.zen")
+
+INPUT = io("INPUT", Net, direction="input")
+OUTPUT = io("OUTPUT", Net, direction="output")
+VRAW = io("VRAW", Power, direction="input")
+VSS = io("VSS", Power, direction="input")
+GND = io("GND", Ground)
+VDD = Power("VDD")
+AMP = Opamp(name="AMP", IN_P=INPUT, IN_N=GND, OUT=OUTPUT)
+
+OperationalAmplifier(
+    name="U1",
+    manufacturer="Generic",
+    mpn="GENERIC-OPAMP",
+    VP=VDD,
+    VN=VSS,
+    OPA1=AMP,
+)
+FerriteBead(name="FB1", value="220Ohm", package="0603", P1=VRAW, P2=VDD)
+Capacitor(name="C1", value="10uF", package="0805", P1=VRAW, P2=GND)
+Capacitor(name="C2", value="100nF", package="0402", P1=VDD, P2=GND)

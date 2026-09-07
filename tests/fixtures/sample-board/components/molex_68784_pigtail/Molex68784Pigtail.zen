@@ -1,0 +1,26 @@
+"""Five-hole direct-solder termination for a shortened Micro-B pigtail."""
+
+VBUS = io(Power)
+DN = io(Net)
+DP = io(Net)
+GND = io(Ground)
+SHIELD = io(Net)
+
+Component(
+    name="MOLEX_68784_PIGTAIL",
+    prefix="J",
+    symbol=Symbol("./symbols/Connector_Generic.kicad_sym", name="Conn_01x05"),
+    footprint=File("./footprints/PinHeader_1x05_P2.00mm_Vertical.kicad_mod"),
+    part=Part(
+        mpn="68784-0001",
+        manufacturer="Molex",
+        datasheet="./docs/molex-68784-micro-usb-cable-assemblies.pdf",
+    ),
+    pins={"Pin_1": VBUS, "Pin_2": DN, "Pin_3": DP, "Pin_4": GND, "Pin_5": SHIELD},
+    properties={
+        "value": "68784-0001 pigtail direct-solder termination",
+        "assembly": "Hand-solder shortened shielded cable; do not fit header",
+        "BOM Comments": "Internal Micro-B plug connects to Pico 2 USB receptacle; provide strain relief",
+    },
+    type="connector",
+)

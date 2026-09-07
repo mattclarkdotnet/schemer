@@ -1,0 +1,11 @@
+"""A first-order RC low-pass with an explicit input-to-output direction."""
+
+Resistor = Module("@stdlib/generics/Resistor.zen")
+Capacitor = Module("@stdlib/generics/Capacitor.zen")
+
+INPUT = io("INPUT", Net, direction="input")
+OUTPUT = io("OUTPUT", Net, direction="output")
+GND = io("GND", Ground)
+
+Resistor(name="R1", value="1kohms", package="0603", P1=INPUT, P2=OUTPUT)
+Capacitor(name="C1", value="100nF", package="0603", P1=OUTPUT, P2=GND)

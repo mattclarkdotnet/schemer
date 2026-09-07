@@ -1,0 +1,119 @@
+"""Self-contained Pico 2/DSPi digital ABX module."""
+
+load("../../interfaces/DigitalAbxLink.zen", "DigitalAbxLink")
+load("@stdlib/board_config.zen", "BoardConfig", "DesignRules")
+load(
+    "../../interfaces/NetClasses.zen",
+    "ABX_4L_NETCLASSES",
+    "ABX_PREDEFINED_SIZES",
+    "ClassedGround",
+    "ClassedPower",
+    "DIGITAL_NETCLASS_IMPEDANCE",
+    "GROUND_NETCLASS_IMPEDANCE",
+    "LOGIC_NETCLASS_IMPEDANCE",
+    "POWER_NETCLASS_IMPEDANCE",
+)
+
+Board(
+    name="SampleBoard",
+    layout_path="layout/SampleBoard",
+    layers=4,
+    config=BoardConfig(
+        design_rules=DesignRules(
+            netclasses=ABX_4L_NETCLASSES,
+            predefined_sizes=ABX_PREDEFINED_SIZES,
+        ),
+    ),
+)
+
+MountingHole = Module("@stdlib/generics/MountingHole.zen")
+TestPoint = Module("@stdlib/generics/TestPoint.zen")
+DspiCore = Module("DspiCore.zen")
+SpdifInterfaces = Module("SpdifInterfaces.zen")
+UsbDevice = Module("UsbDevice.zen")
+DigitalAbxRightAngleConnector = Module("../../interfaces/DigitalAbxRightAngleConnector.zen")
+
+# Designator allocation: 1-99 root mechanics/connectors, 100-199 DSP core,
+# 200-299 S/PDIF interfaces, and 300-399 USB interface.
+
+V5_ISO = ClassedPower(impedance=POWER_NETCLASS_IMPEDANCE)
+DIGITAL_GND = ClassedGround(impedance=GROUND_NETCLASS_IMPEDANCE)
+SDA = Net(impedance=DIGITAL_NETCLASS_IMPEDANCE)
+SCL = Net(impedance=DIGITAL_NETCLASS_IMPEDANCE)
+DSP_RESET_REQUEST = Net(impedance=LOGIC_NETCLASS_IMPEDANCE)
+DSP_STATUS = Net(impedance=LOGIC_NETCLASS_IMPEDANCE)
+DSP_I2S_BCK = Net(impedance=DIGITAL_NETCLASS_IMPEDANCE)
+DSP_I2S_LRCK = Net(impedance=DIGITAL_NETCLASS_IMPEDANCE)
+DSP_I2S_DOUT = Net(impedance=DIGITAL_NETCLASS_IMPEDANCE)
+PICO_3V3 = ClassedPower(impedance=POWER_NETCLASS_IMPEDANCE)
+PICO_VSYS = ClassedPower(impedance=POWER_NETCLASS_IMPEDANCE)
+SPDIF_RX = Net(impedance=DIGITAL_NETCLASS_IMPEDANCE)
+SPDIF_TX_OPTICAL_A = Net(impedance=DIGITAL_NETCLASS_IMPEDANCE)
+SPDIF_TX_OPTICAL_B = Net(impedance=DIGITAL_NETCLASS_IMPEDANCE)
+SPDIF_TX_COAX = Net(impedance=DIGITAL_NETCLASS_IMPEDANCE)
+
+CONTROL_LINK = DigitalAbxLink(
+    V5_ISO=V5_ISO,
+    DIGITAL_GND=DIGITAL_GND,
+    SDA=SDA,
+    SCL=SCL,
+    DSP_RESET_REQUEST=DSP_RESET_REQUEST,
+    DSP_STATUS=DSP_STATUS,
+    DSP_I2S_BCK=DSP_I2S_BCK,
+    DSP_I2S_LRCK=DSP_I2S_LRCK,
+    DSP_I2S_DOUT=DSP_I2S_DOUT,
+)
+
+DigitalAbxRightAngleConnector(name="J1", LINK=CONTROL_LINK)  # CONTROL_CONNECTOR
+
+DspiCore(
+    name="DSP_CORE",
+    designator_base=100,
+    V5_ISO=V5_ISO,
+    DIGITAL_GND=DIGITAL_GND,
+    SDA=SDA,
+    SCL=SCL,
+    DSP_RESET_REQUEST=DSP_RESET_REQUEST,
+    DSP_STATUS=DSP_STATUS,
+    DSP_I2S_BCK=DSP_I2S_BCK,
+    DSP_I2S_LRCK=DSP_I2S_LRCK,
+    DSP_I2S_DOUT=DSP_I2S_DOUT,
+    SPDIF_RX=SPDIF_RX,
+    SPDIF_TX_OPTICAL_A=SPDIF_TX_OPTICAL_A,
+    SPDIF_TX_OPTICAL_B=SPDIF_TX_OPTICAL_B,
+    SPDIF_TX_COAX=SPDIF_TX_COAX,
+    PICO_3V3=PICO_3V3,
+    PICO_VSYS=PICO_VSYS,
+)
+
+SpdifInterfaces(
+    name="SPDIF",
+    designator_base=200,
+    PICO_3V3=PICO_3V3,
+    PICO_VSYS=PICO_VSYS,
+    DIGITAL_GND=DIGITAL_GND,
+    SPDIF_RX=SPDIF_RX,
+    SPDIF_TX_OPTICAL_A=SPDIF_TX_OPTICAL_A,
+    SPDIF_TX_OPTICAL_B=SPDIF_TX_OPTICAL_B,
+    SPDIF_TX_COAX=SPDIF_TX_COAX,
+)
+
+UsbDevice(name="USB", designator_base=300, PICO_VSYS=PICO_VSYS, DIGITAL_GND=DIGITAL_GND)
+
+TestPoint(name="TP1", P1=V5_ISO, variant="THTPad_D1.0mm_Drill0.5mm")
+TestPoint(name="TP2", P1=PICO_VSYS, variant="THTPad_D1.0mm_Drill0.5mm")
+TestPoint(name="TP3", P1=PICO_3V3, variant="THTPad_D1.0mm_Drill0.5mm")
+TestPoint(name="TP4", P1=DIGITAL_GND, variant="THTPad_D1.0mm_Drill0.5mm")
+
+MountingHole(name="H1", diameter="M3", plating="Mechanical")  # MOUNT_TOP_LEFT
+MountingHole(name="H2", diameter="M3", plating="Mechanical")  # MOUNT_TOP_RIGHT
+MountingHole(name="H3", diameter="M3", plating="Mechanical")  # MOUNT_BOTTOM_LEFT
+MountingHole(name="H4", diameter="M3", plating="Mechanical")  # MOUNT_BOTTOM_RIGHT
+# schemer:hint {"version":1,"id":"controller-after-input","kind":"right-of","reason":"Whole-sheet review: J1 should introduce the circuit, with its DSP block to the right.","blocks":["DSP_CORE","J1"]}
+# schemer:hint {"version":1,"id":"audio-after-controller","kind":"right-of","reason":"Whole-sheet review: the S/PDIF interface is a branch after the DSP block.","blocks":["SPDIF","DSP_CORE"]}
+# schemer:hint {"version":1,"id":"usb-after-controller","kind":"right-of","reason":"Whole-sheet review: USB belongs beside S/PDIF as a peer interface branch after the DSP, rather than before the input connector.","blocks":["USB","DSP_CORE"]}
+
+# pcb:sch DSP_CORE x=-12.7000 y=-1066.8000 rot=0
+# pcb:sch H1.MH x=-382.0000 y=-623.3000 rot=0
+# pcb:sch SPDIF x=-2336.8000 y=1689.1000 rot=0
+# pcb:sch SPDIF.U204.74HC14D_653@U5 x=-825.5000 y=-12.7000 rot=0

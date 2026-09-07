@@ -1,0 +1,12 @@
+"""Minimal collinear endpoints with orthogonal outward pin directions."""
+
+Resistor = Module("@stdlib/generics/Resistor.zen")
+INPUT = io(Net)
+COMMON = Net("COMMON")
+GND = Ground("GND")
+
+Resistor(name="OUT", value="100", P1=INPUT, P2=COMMON)
+Resistor(name="SHUNT", value="100", P1=COMMON, P2=GND)
+
+# pcb:sch OUT.R x=0 y=0 rot=270
+# pcb:sch SHUNT.R x=25.4 y=165.4 rot=0

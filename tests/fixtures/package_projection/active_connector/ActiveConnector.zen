@@ -1,0 +1,23 @@
+"""Generic powered active device initially drawn as a one-sided connector."""
+
+VCC = io("VCC", Power, direction="input")
+GND = io("GND", Ground)
+SIGNAL = io("SIGNAL", Net, direction="input")
+AUX_A = io("AUX_A", Net, direction="output")
+AUX_B = io("AUX_B", Net, direction="output")
+
+Component(
+    name="ACTIVE",
+    prefix="U",
+    symbol=Symbol(library="ActiveConnector.kicad_sym", name="ACTIVE_CONNECTOR"),
+    footprint=File("ActiveConnector.kicad_mod"),
+    part=Part(mpn="GENERIC-ACTIVE", manufacturer="Generic"),
+    pins={
+        "VCC": VCC,
+        "GND": GND,
+        "SIGNAL": SIGNAL,
+        "AUX_A": AUX_A,
+        "AUX_B": AUX_B,
+    },
+    type="transceiver",
+)

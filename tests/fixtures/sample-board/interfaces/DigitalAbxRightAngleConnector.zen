@@ -1,0 +1,36 @@
+"""Right-angle digital-board realization of the 20-position DigitalAbxLink.
+
+This keeps the established odd-row signal and even-row power/return mapping
+while changing only the digital board's physical cable-entry direction. The
+power/control board retains the vertical realization.
+"""
+
+load("DigitalAbxLink.zen", "DigitalAbxLink")
+
+IdcBoxHeader2x10RightAngle = Module("../components/idc_box_header_2x10_right_angle/IdcBoxHeader2x10RightAngle.zen")
+
+LINK = io(DigitalAbxLink)
+
+IdcBoxHeader2x10RightAngle(
+    name="J_DIGITAL_ABX",
+    P1=LINK.SCL,
+    P2=LINK.V5_ISO,
+    P3=LINK.SDA,
+    P4=LINK.V5_ISO,
+    P5=LINK.DSP_RESET_REQUEST,
+    P6=LINK.DIGITAL_GND,
+    P7=LINK.DSP_STATUS,
+    P8=LINK.DIGITAL_GND,
+    P9=LINK.DSP_I2S_BCK,
+    P10=LINK.DIGITAL_GND,
+    P11=LINK.DSP_I2S_LRCK,
+    P12=LINK.DIGITAL_GND,
+    P13=LINK.DSP_I2S_DOUT,
+    P14=LINK.DIGITAL_GND,
+    P15=NotConnected(),
+    P16=LINK.DIGITAL_GND,
+    P17=NotConnected(),
+    P18=LINK.DIGITAL_GND,
+    P19=NotConnected(),
+    P20=LINK.DIGITAL_GND,
+)

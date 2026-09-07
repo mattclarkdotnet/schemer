@@ -1,0 +1,25 @@
+"""A major IC whose real pins should face its semantic upstream and downstream."""
+
+load("@stdlib/interfaces.zen", "Opamp")
+OperationalAmplifier = Module("@stdlib/generics/OperationalAmplifier.zen")
+Resistor = Module("@stdlib/generics/Resistor.zen")
+
+INPUT = io("INPUT", Net, direction="input")
+OUTPUT = io("OUTPUT", Net, direction="output")
+VDD = io("VDD", Power, direction="input")
+VSS = io("VSS", Power, direction="input")
+GND = io("GND", Ground)
+AMP_IN = Net(name="AMP_IN")
+AMP_OUT = Net(name="AMP_OUT")
+AMP = Opamp(name="AMP", IN_P=AMP_IN, IN_N=GND, OUT=AMP_OUT)
+
+Resistor(name="R1", value="1k", package="0603", P1=INPUT, P2=AMP_IN)
+OperationalAmplifier(
+    name="U1",
+    manufacturer="Generic",
+    mpn="GENERIC-OPAMP",
+    VP=VDD,
+    VN=VSS,
+    OPA1=AMP,
+)
+Resistor(name="R2", value="1k", package="0603", P1=AMP_OUT, P2=OUTPUT)

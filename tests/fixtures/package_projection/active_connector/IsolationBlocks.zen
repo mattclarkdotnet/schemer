@@ -1,0 +1,67 @@
+"""Generic connector-to-isolator-to-connector chain for block composition."""
+
+Resistor = Module("@stdlib/generics/Resistor.zen")
+Capacitor = Module("@stdlib/generics/Capacitor.zen")
+
+VCC = io("VCC", Power, direction="input")
+VDD = io("VDD", Power, direction="input")
+GND = io("GND", Ground)
+INPUT = io("INPUT", Net, direction="input")
+OUTPUT = io("OUTPUT", Net, direction="output")
+
+ISOLATOR_INPUT = Net("ISOLATOR_INPUT")
+ISOLATOR_OUTPUT = Net("ISOLATOR_OUTPUT")
+SOURCE_AUX = Net("SOURCE_AUX")
+SOURCE_AUX_2 = Net("SOURCE_AUX_2")
+
+Resistor(name="R_LEFT", value="24", package="0603", P1=INPUT, P2=ISOLATOR_INPUT)
+Resistor(name="R_RIGHT", value="24", package="0603", P1=ISOLATOR_OUTPUT, P2=OUTPUT)
+Resistor(name="R_AUX_SHUNT", value="5.1k", package="0603", P1=SOURCE_AUX, P2=GND)
+Resistor(name="R_AUX_SHUNT_2", value="5.1k", package="0603", P1=SOURCE_AUX_2, P2=GND)
+Capacitor(name="C_LOCAL", value="100nF", package="0603", P1=VCC, P2=GND)
+
+Component(
+    name="SOURCE",
+    prefix="J",
+    symbol=Symbol(library="ActiveConnector.kicad_sym", name="ACTIVE_CONNECTOR"),
+    footprint=File("ActiveConnector.kicad_mod"),
+    part=Part(mpn="GENERIC-SOURCE", manufacturer="Generic"),
+    pins={
+        "VCC": VCC,
+        "GND": GND,
+        "SIGNAL": INPUT,
+        "AUX_A": SOURCE_AUX,
+        "AUX_B": SOURCE_AUX_2,
+    },
+    type="connector",
+)
+Component(
+    name="BARRIER",
+    prefix="U",
+    symbol=Symbol(library="IsolationBarrier.kicad_sym", name="ISOLATION_BARRIER"),
+    footprint=File("IsolationBarrier.kicad_mod"),
+    part=Part(mpn="GENERIC-ISOLATOR", manufacturer="Generic"),
+    pins={
+        "VCC": VCC,
+        "GND": GND,
+        "SIGNAL": ISOLATOR_INPUT,
+        "AUX_A": ISOLATOR_OUTPUT,
+        "AUX_B": VDD,
+    },
+    type="digital_isolator",
+)
+Component(
+    name="SINK",
+    prefix="J",
+    symbol=Symbol(library="ActiveConnector.kicad_sym", name="ACTIVE_CONNECTOR"),
+    footprint=File("ActiveConnector.kicad_mod"),
+    part=Part(mpn="GENERIC-SINK", manufacturer="Generic"),
+    pins={
+        "VCC": VCC,
+        "GND": GND,
+        "SIGNAL": OUTPUT,
+        "AUX_A": NotConnected(),
+        "AUX_B": NotConnected(),
+    },
+    type="connector",
+)

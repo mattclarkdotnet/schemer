@@ -1,0 +1,47 @@
+"""GCT USB4105-GF-A USB 2.0 Type-C device receptacle."""
+
+VBUS = io(Power)
+GND = io(Ground)
+DP = io(Net)
+DN = io(Net)
+CC1 = io(Net)
+CC2 = io(Net)
+SHIELD = io(Net)
+
+Component(
+    name="USB4105_GF_A",
+    prefix="J",
+    symbol=Symbol("./symbols/USB_C_Receptacle_USB2.0_16P.kicad_sym", name="USB_C_Receptacle_USB2.0_16P"),
+    footprint=File("./footprints/USB_C_Receptacle_GCT_USB4105-xx-A_16P_TopMnt_Horizontal.kicad_mod"),
+    part=Part(
+        mpn="USB4105-GF-A",
+        manufacturer="GCT",
+        datasheet="./docs/gct-usb4105.pdf",
+    ),
+    pins={
+        "GND_A1": GND,
+        "VBUS_A4": VBUS,
+        "CC1": CC1,
+        "D+_A6": DP,
+        "D-_A7": DN,
+        "SBU1": NotConnected(),
+        "VBUS_A9": VBUS,
+        "GND_A12": GND,
+        "GND_B1": GND,
+        "VBUS_B4": VBUS,
+        "CC2": CC2,
+        "D+_B6": DP,
+        "D-_B7": DN,
+        "SBU2": NotConnected(),
+        "VBUS_B9": VBUS,
+        "GND_B12": GND,
+        "SHIELD": SHIELD,
+    },
+    properties={
+        "value": "USB4105-GF-A DSP USB device",
+        "LCSC": "C3020560",
+        "assembly": "JLCPCB SMT; Economic eligibility and assembly stock require quote",
+        "BOM Comments": "USB 2.0 UFP only; no PD or source role; toybox circuit reuse",
+    },
+    type="connector",
+)

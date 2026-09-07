@@ -1,0 +1,288 @@
+(footprint "CAX_AV_104A_R"
+	(version 20260206)
+	(generator "pcbnew")
+	(generator_version "10.0")
+	(layer "F.Cu")
+	(descr "CAX AV-104A-R right-angle RCA jack; logical pad 1 is physical terminal 3 centre contact, pad 2 is physical terminal 2 shell")
+	(tags "RCA coax S/PDIF C54123379 AV-104A-R")
+	(property "Reference" "REF**"
+		(at 0 11.5 0)
+		(layer "F.SilkS")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.15)
+			)
+		)
+	)
+	(property "Value" "CAX_AV_104A_R"
+		(at 0 -14.5 0)
+		(layer "F.Fab")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.15)
+			)
+		)
+	)
+	(property "Datasheet" "${KIPRJMOD}/../references/datasheets/cax-av-104a-r.pdf"
+		(at 0 0 0)
+		(layer "F.Fab")
+		(hide yes)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+		)
+	)
+	(property "Description" "CAX AV-104A-R right-angle RCA jack, JLCPCB C54123379"
+		(at 0 0 0)
+		(layer "F.Fab")
+		(hide yes)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+		)
+	)
+	(property "LCSC Part" "C54123379")
+	(attr through_hole)
+	(fp_rect
+		(start -5 -4)
+		(end 5 10)
+		(stroke
+			(width 0.1)
+			(type default)
+		)
+		(fill no)
+		(layer "F.Fab")
+	)
+	(fp_rect
+		(start -4.15 -13)
+		(end 4.15 -4)
+		(stroke
+			(width 0.1)
+			(type default)
+		)
+		(fill no)
+		(layer "F.Fab")
+	)
+	(fp_line
+		(start -5 -4)
+		(end -5 10)
+		(stroke
+			(width 0.15)
+			(type default)
+		)
+		(layer "F.SilkS")
+	)
+	(fp_line
+		(start -5 10)
+		(end 5 10)
+		(stroke
+			(width 0.15)
+			(type default)
+		)
+		(layer "F.SilkS")
+	)
+	(fp_line
+		(start 5 10)
+		(end 5 -4)
+		(stroke
+			(width 0.15)
+			(type default)
+		)
+		(layer "F.SilkS")
+	)
+	(fp_line
+		(start -4.15 -13)
+		(end -4.15 -4)
+		(stroke
+			(width 0.15)
+			(type default)
+		)
+		(layer "F.SilkS")
+	)
+	(fp_line
+		(start 4.15 -4)
+		(end 4.15 -13)
+		(stroke
+			(width 0.15)
+			(type default)
+		)
+		(layer "F.SilkS")
+	)
+	(fp_line
+		(start 4.15 -13)
+		(end -4.15 -13)
+		(stroke
+			(width 0.15)
+			(type default)
+		)
+		(layer "F.SilkS")
+	)
+	(fp_line
+		(start -5 -4)
+		(end -4.15 -4)
+		(stroke
+			(width 0.15)
+			(type default)
+		)
+		(layer "F.SilkS")
+	)
+	(fp_line
+		(start 4.15 -4)
+		(end 5 -4)
+		(stroke
+			(width 0.15)
+			(type default)
+		)
+		(layer "F.SilkS")
+	)
+	(fp_circle
+		(center -1.65 6.5)
+		(end -1.15 6.5)
+		(stroke
+			(width 0.15)
+			(type default)
+		)
+		(fill no)
+		(layer "F.SilkS")
+	)
+	(fp_rect
+		(start -5.25 -13.25)
+		(end 5.25 10.25)
+		(stroke
+			(width 0.05)
+			(type default)
+		)
+		(fill no)
+		(layer "F.CrtYd")
+	)
+	(pad "1" thru_hole oval
+		(at 0 6.5)
+		(size 1.8 3.2)
+		(drill oval 1 2.4)
+		(layers "*.Cu" "*.Mask")
+	)
+	(pad "2" thru_hole oval
+		(at 0 0)
+		(size 3 2.3)
+		(drill oval 2.2 1.5)
+		(layers "*.Cu" "*.Mask")
+	)
+	(pad "" np_thru_hole circle
+		(at -3.75 0)
+		(size 1.5 1.5)
+		(drill 1.5)
+		(layers "*.Cu" "*.Mask")
+	)
+	(pad "" np_thru_hole circle
+		(at 3.75 0)
+		(size 1.5 1.5)
+		(drill 1.5)
+		(layers "*.Cu" "*.Mask")
+	)
+	(embedded_files
+		(file
+			(name CAX_AV_104A_R.step)
+			(type model)
+			(data |KLUv/WAtdNWZAHrjSCAq4I6KtQF0RIee5rJfxgGhYZ0dFu+LoOz8UbxSZpJceUPNuiwjMMMMnjCYmgK9
+				AaEBhna72fJntZpZmVkZkdF0bCyrXi/X0JXrqtW6WVlVnWVhVRHVlG0qCYnIeNMdUcmoqGiIaCizRTzV
+				0NDQUG1oaMhDQ0P3zFBGZJYoMzMzMzMzExMR0YiIiIiIiIj4////////27dt27Zt28bfeXfJO99dfT2z
+				k0hQ1NHRzeUcAyQR+77u9dpaq0Sd1tQy8eF2s53PbMisZhezJEhWWC4TPH6iImGju1bvwawYEKAYUJcI
+				xK1iMKDiwYQqgEqFZcqdorBYJC4oDSAomRMPLARcYCQiAikHjJhMSAyAkNySKCUkKAVQLCwSE5uAC4iK
+				hMXiAkLCElGZkDi4BypNKBUVCHOARKZhomKhuJiQVCwolwrJpGpFEHbhgDKRSFBclEUFAUOHsZsB8vpb
+				dqTyEQ1J0JCgwAYFDAjyASl0QIYGcmxgOFBBA4PCRsPvoMIS4WSA+NFwxwB5PBoukwcQHWKAlKHhMkGx
+				oFRQUCouKBSSAizsUSEDggQNDAYgZDzgcFCYoIADYwMjgiODwgQIDRcEKJcJy6QYFhg4FANkZgry0FhA
+				QoWMCBcZEkjYmPDAhI0IMB4OxwLkEYECRgQNjI0KDgcwNCZI2MDQoJCxoSHhUZmoREhYJpaLpYLiQjKp
+				SFBQSBwDOIhhgYHkIoFYYDChWEBMUBYYODg8LiBHqRyOcZDDAsdEg4oBlYvFgeXyQPJoaJA4oBQwsdCY
+				YIJGAxoPHhDIAyN3UJhQoUIGhAkUIHBQUC4Oh8Ox0ABxeEAeZgLkCZBzyXnAeXBNBgQYDFg4KBCSiYVk
+				4tDIgMDyaKA4kEw4PIhBPSAODwcyIkxw4ICQTDIyKEQ8GhomLJULRaViYkGBuKBIVCIWGFRQICSUAhYY
+				UD3Y2NCDxaISSVTqtDrNRLuZzT53n1lfM7OqyCEf/5NGWfPNzMzIzMbMzkWrMix7We9lLkPnuezKWlZV
+				VFZVVFNT2URCOp3I0nRkZGRkZGRkZGRkl0zEsY8Nfcw31jHrWI3VGI1dZiwT85mJ+XQ6Ly+PzaZlZSXl
+				JOVkEkUMEfGYRyMeFg0Li4aFhBUpCOHgI2gm5w3l0EUun8cP4v/fnzz07/eexnr7kcder9PnmYmeJ/q+
+				TT2f69psm8v2kcd5eHi/i31VVb+qOrq5Orq5zBb28rrXzNa9tlZrVas1alFrWplWeLxZ5tlZzVYzMysj
+				G0uyySqssohBsOqFkYRcGykfq3dmFEG77letVn3KrKqKqrBFVVNVtpuqTCqkU5nq6GQ6KpWsqKioqKio
+				qKampqampqampsyqpmiqUzQ1U4lPvF3xwOJCQjKpVEAkMLm8NC0rjSgtKyknJzMJEY9G4xUPi4ZGhYWE
+				hoSD+Af8Ix4f//t3FCnkJCYVlUnPkTl6oFSWFX01TYTMTq3Tad485ufpNPoSfU/Zrs3l2lwmk8cRd3R5
+				eD/f3V1v3LM7urk6urlsFnv3cmTt615bs1axVeo0DW2aAePxOJ+Z+XRmZmZmJmZmJh4RERERj4iIePz/
+				////PxNP/2V8o28bfdvnc202l8ll8nhc5zu83893vrva2dX16kpHN5eJL76uI2/rtr1er9dr2vXs7Lc1
+				cpBGxs7Ozs7Ozs7O7u6uZ2dnZ+ezq7PP5rGvrq6uXFfXcl21rKyqLqIuW0dHk/jTma7qTHd0ZHR3d3eX
+				duZbOvG+m+scXedsruZobuaKZi4zE5P6dDovm5dNS8tqTSsrKTMxEfGIeDQaLQ8Pi0/KyaIZFmIWEg4e
+				P5jH/79/73t73V6n0+35PNG2z7brotm+p9Em2/fd3d3d3d3d3V2rbfu6bdu2tbbNxBvebGZmq1mtVqvV
+				WrVWq9VqtVqtVqvVarXaWqtUrasSUqnGE/WOWjIyKipREdHQkHE6xemnn3rqm9ZsWp1madrEJz6dmels
+				pmVaUk4mTiYi/o7UA+R8eFhEY9EMEWeahYRIRbI5vFKPx//+PXv/3tvt9dfo9Pk8XU/b9m2f69o85TKZ
+				PDaPE2+87+56dnV0SXN1dHPZrCFOX3vNtbtarVarBpUHACCPBCosDSYSCUrFw1EhAgU0II+MCBzAkOCi
+				AggYFCKAAAHjIgOChAjFP1AqB1xQJBQHp1wsDCGpiEAAoEg0mJBcXIQSgUQqEhIVB5GKhcMhAAiHQ0MB
+				lwYTFIk6HB4Oh4OBDQkTOCCMwbFBwYTJw9eFS8WBEBQLyUUCkkvFAwIsEg0WHA52oTiwUBo4GgwLCQcL
+				CQcz0e7/ff+Ov/f/7XX6fJ6+IPq+7bTPtblcm8tk8vj6PLyfD+/nu7vr9Vw7u7rTne5z/b3v39fFur/+
+				+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
+				BhoFBtGxF++eULoC|
+			)
+			(checksum "A63C8BFF27A55714112F13D1C9AB9603")
+		)
+	)
+	(model "kicad-embed://CAX_AV_104A_R.step"
+		(offset
+			(xyz 0 0 0)
+		)
+		(scale
+			(xyz 1 1 1)
+		)
+		(rotate
+			(xyz 0 0 0)
+		)
+	)
+)

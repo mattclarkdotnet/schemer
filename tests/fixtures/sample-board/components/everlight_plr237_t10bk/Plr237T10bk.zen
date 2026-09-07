@@ -1,0 +1,33 @@
+"""Everlight PLR237/T10BK 25 Mbit/s horizontal optical receiver."""
+
+VCC = io(Power)
+GND = io(Ground)
+VOUT = io(Net)
+
+Component(
+    name="PLR237_T10BK",
+    prefix="U",
+    symbol=Symbol("./symbols/Connector_Generic.kicad_sym", name="Conn_01x05"),
+    footprint=File("./footprints/PLR237_T10BK.kicad_mod"),
+    part=Part(
+        mpn="PLR237/T10BK",
+        manufacturer="Everlight Electronics",
+        datasheet="./docs/everlight-plr237-t10bk-rev1.pdf",
+    ),
+    pins={
+        "Pin_1": VCC,
+        "Pin_2": GND,
+        "Pin_3": VOUT,
+        "Pin_4": NotConnected(),
+        "Pin_5": NotConnected(),
+    },
+    properties={
+        "value": "PLR237/T10BK optical S/PDIF input",
+        "LCSC": "C17427482",
+        "JLCPCB": "C17427482",
+        "assembly": "JLCPCB Extended through-hole catalogue; manualWeld placement available",
+        "jlc_assembly_stock_observed": "zero on 2026-08-27; stock is volatile evidence, not an assembly-population instruction",
+        "BOM Comments": "Toybox verified receiver package and pin map",
+    },
+    type="optical_receiver",
+)

@@ -1,0 +1,13 @@
+"""A generic two-wire series bank ending at a connector."""
+
+PinHeader = Module("@stdlib/generics/PinHeader.zen")
+Resistor = Module("@stdlib/generics/Resistor.zen")
+
+INPUT_P = io("INPUT_P", Net, direction="input")
+INPUT_N = io("INPUT_N", Net, direction="input")
+TERMINAL_P = Net("TERMINAL_P")
+TERMINAL_N = Net("TERMINAL_N")
+
+Resistor(name="R1", value="22ohms", package="0603", P1=INPUT_P, P2=TERMINAL_P)
+Resistor(name="R2", value="22ohms", package="0603", P1=INPUT_N, P2=TERMINAL_N)
+PinHeader(name="J1", pins=2, P1=TERMINAL_P, P2=TERMINAL_N)

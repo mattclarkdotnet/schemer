@@ -1,0 +1,14 @@
+"""Three parallel series branches converging on a shared downstream stage."""
+
+Resistor = Module("@stdlib/generics/Resistor.zen")
+
+INPUT_A = io("INPUT_A", Net, direction="input")
+INPUT_B = io("INPUT_B", Net, direction="input")
+INPUT_C = io("INPUT_C", Net, direction="input")
+OUTPUT = io("OUTPUT", Net, direction="output")
+COMMON = Net("COMMON")
+
+Resistor(name="R1", value="1kohms", package="0603", P1=INPUT_A, P2=COMMON)
+Resistor(name="R2", value="1kohms", package="0603", P1=INPUT_B, P2=COMMON)
+Resistor(name="R3", value="1kohms", package="0603", P1=INPUT_C, P2=COMMON)
+Resistor(name="R4", value="1kohms", package="0603", P1=COMMON, P2=OUTPUT)

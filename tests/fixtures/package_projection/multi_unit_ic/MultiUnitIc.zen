@@ -1,0 +1,29 @@
+"""Generic four-unit logic IC used to test package-body presentation."""
+
+A1 = io("A1", Net, direction="input")
+Y1 = io("Y1", Net, direction="output")
+A2 = io("A2", Net, direction="input")
+Y2 = io("Y2", Net, direction="output")
+A3 = io("A3", Net, direction="input")
+Y3 = io("Y3", Net, direction="output")
+GND = io("GND", Ground)
+VCC = io("VCC", Power, direction="input")
+
+Component(
+    name="BUFFER",
+    prefix="U",
+    symbol=Symbol(library="GenericMultiUnit.kicad_sym", name="GENERIC_QUAD"),
+    footprint=File("GenericMultiUnit.kicad_mod"),
+    part=Part(mpn="GENERIC-QUAD", manufacturer="Generic"),
+    pins={
+        "A1": A1,
+        "Y1": Y1,
+        "A2": A2,
+        "Y2": Y2,
+        "A3": A3,
+        "Y3": Y3,
+        "GND": GND,
+        "VCC": VCC,
+    },
+    type="logic",
+)

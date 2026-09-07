@@ -1,0 +1,24 @@
+{
+  "scenario": "major_anchor_pin_aware_orientation",
+  "left_to_right": [
+    ["comp:R1.R", "comp:U1.U", "comp:R2.R"]
+  ],
+  "same_y": [
+    ["comp:R1.R", "comp:U1.U", "comp:R2.R"]
+  ],
+  "rotations": {
+    "comp:R1.R": 270,
+    "comp:U1.U": 0,
+    "comp:R2.R": 270
+  },
+  "roles": {
+    "comp:R1.R": "signal_path",
+    "comp:U1.U": "major_anchor",
+    "comp:R2.R": "signal_path"
+  },
+  "stages": {
+    "comp:R1.R": "signal_networks",
+    "comp:U1.U": "major_anchors",
+    "comp:R2.R": "signal_networks"
+  }
+}

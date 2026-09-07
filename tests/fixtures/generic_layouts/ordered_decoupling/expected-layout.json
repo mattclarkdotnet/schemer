@@ -1,0 +1,32 @@
+{
+  "scenario": "ordered_local_decoupling",
+  "right_of": [
+    ["comp:C1.C", "comp:U1.U"],
+    ["comp:C2.C", "comp:U1.U"]
+  ],
+  "same_y": [
+    ["comp:U1.U", "comp:C1.C", "comp:C2.C"]
+  ],
+  "closer_to": [
+    ["comp:C2.C", "comp:C1.C", "comp:U1.U"]
+  ],
+  "rotations": {
+    "comp:U1.U": 0,
+    "comp:C1.C": 0,
+    "comp:C2.C": 0
+  },
+  "roles": {
+    "comp:U1.U": "major_anchor",
+    "comp:C1.C": "local_decoupling",
+    "comp:C2.C": "local_decoupling"
+  },
+  "stages": {
+    "comp:U1.U": "major_anchors",
+    "comp:C1.C": "power_structure",
+    "comp:C2.C": "power_structure"
+  },
+  "owners": {
+    "comp:C1.C": "comp:U1.U",
+    "comp:C2.C": "comp:U1.U"
+  }
+}

@@ -1,0 +1,72 @@
+"""Generic keyed 2×10 2.54 mm right-angle IDC box header.
+
+BOOMELE C9144 is the selected JLCPCB through-hole catalogue part. Its
+manufacturer drawing specifies a 2.54 mm row and column grid with 1.0 mm PCB
+holes, matching KiCad's stock IDC-Header_2x10_P2.54mm_Horizontal land pattern
+used here. The matching KiCad STEP model is embedded in the footprint.
+"""
+
+P1 = io(Net)
+P2 = io(Net)
+P3 = io(Net)
+P4 = io(Net)
+P5 = io(Net)
+P6 = io(Net)
+P7 = io(Net)
+P8 = io(Net)
+P9 = io(Net)
+P10 = io(Net)
+P11 = io(Net)
+P12 = io(Net)
+P13 = io(Net)
+P14 = io(Net)
+P15 = io(Net)
+P16 = io(Net)
+P17 = io(Net)
+P18 = io(Net)
+P19 = io(Net)
+P20 = io(Net)
+
+Component(
+    name="IDC_BOX_HEADER_2X10_RIGHT_ANGLE",
+    part=Part(
+        mpn="2.54-2*10P Bent Header",
+        manufacturer="BOOMELE (Boom Precision Elec)",
+        datasheet="https://www.lcsc.com/datasheet/lcsc_datasheet_2304140030_BOOMELE-Boom-Precision-Elec-2-54-2-10P_C9144.pdf",
+    ),
+    symbol=Symbol("./symbols/Connector_Generic.kicad_sym", name="Conn_02x10_Odd_Even"),
+    footprint=File("./footprints/IDC-Header_2x10_P2.54mm_Horizontal.kicad_mod"),
+    prefix="J",
+    pins={
+        "Pin_1": P1,
+        "Pin_2": P2,
+        "Pin_3": P3,
+        "Pin_4": P4,
+        "Pin_5": P5,
+        "Pin_6": P6,
+        "Pin_7": P7,
+        "Pin_8": P8,
+        "Pin_9": P9,
+        "Pin_10": P10,
+        "Pin_11": P11,
+        "Pin_12": P12,
+        "Pin_13": P13,
+        "Pin_14": P14,
+        "Pin_15": P15,
+        "Pin_16": P16,
+        "Pin_17": P17,
+        "Pin_18": P18,
+        "Pin_19": P19,
+        "Pin_20": P20,
+    },
+    properties={
+        "value": "2x10 2.54mm right-angle IDC box header",
+        "LCSC": "C9144",
+        "JLCPCB": "C9144",
+        "assembly": "JLCPCB Extended through-hole catalogue; manualWeld placement available",
+        "catalog_stock_observed": "12121 JLC catalogue stock on 2026-08-27",
+        "mating_connector": "Generic 20-position 2x10 IDC ribbon socket with strain relief",
+        "BOM Comments": "Inter-board link; one header on each PCB and one shared 20-way ribbon cable. Do not double-order the cable.",
+    },
+    type="connector",
+)

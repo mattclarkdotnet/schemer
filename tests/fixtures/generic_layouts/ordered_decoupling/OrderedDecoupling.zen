@@ -1,0 +1,23 @@
+"""An IC with bulk first by reference, but local high-frequency bypass closest."""
+
+load("@stdlib/interfaces.zen", "Opamp")
+OperationalAmplifier = Module("@stdlib/generics/OperationalAmplifier.zen")
+Capacitor = Module("@stdlib/generics/Capacitor.zen")
+
+INPUT = io("INPUT", Net, direction="input")
+OUTPUT = io("OUTPUT", Net, direction="output")
+VDD = io("VDD", Power, direction="input")
+VSS = io("VSS", Power, direction="input")
+GND = io("GND", Ground)
+AMP = Opamp(name="AMP", IN_P=INPUT, IN_N=GND, OUT=OUTPUT)
+
+OperationalAmplifier(
+    name="U1",
+    manufacturer="Generic",
+    mpn="GENERIC-OPAMP",
+    VP=VDD,
+    VN=VSS,
+    OPA1=AMP,
+)
+Capacitor(name="C1", value="10uF", package="0805", P1=VDD, P2=GND)
+Capacitor(name="C2", value="100nF", package="0402", P1=VDD, P2=GND)

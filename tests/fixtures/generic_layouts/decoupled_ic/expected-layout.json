@@ -1,0 +1,27 @@
+{
+  "scenario": "supply_decoupling",
+  "right_of": [
+    ["comp:C1.C", "comp:U1.U"]
+  ],
+  "same_y": [
+    ["comp:U1.U", "comp:C1.C"]
+  ],
+  "near": [
+    ["comp:C1.C", "comp:U1.U", 300]
+  ],
+  "rotations": {
+    "comp:U1.U": 0,
+    "comp:C1.C": 0
+  },
+  "roles": {
+    "comp:U1.U": "major_anchor",
+    "comp:C1.C": "local_decoupling"
+  },
+  "stages": {
+    "comp:U1.U": "major_anchors",
+    "comp:C1.C": "power_structure"
+  },
+  "owners": {
+    "comp:C1.C": "comp:U1.U"
+  }
+}

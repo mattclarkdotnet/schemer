@@ -1,0 +1,21 @@
+"""A directed series rectifier whose real A/K sides must not cross the flow."""
+
+Rectifier = Module("@stdlib/generics/Rectifier.zen")
+Resistor = Module("@stdlib/generics/Resistor.zen")
+
+INPUT = io("INPUT", Net, direction="input")
+OUTPUT = io("OUTPUT", Net, direction="output")
+RECTIFIER_IN = Net("RECTIFIER_IN")
+RECTIFIER_OUT = Net("RECTIFIER_OUT")
+
+Resistor(name="R1", value="1kohms", package="0603", P1=INPUT, P2=RECTIFIER_IN)
+Rectifier(
+    name="D1",
+    technology="Schottky",
+    package="DO-214AC",
+    reverse_voltage="40V",
+    forward_current="1A",
+    A=RECTIFIER_IN,
+    K=RECTIFIER_OUT,
+)
+Resistor(name="R2", value="1kohms", package="0603", P1=RECTIFIER_OUT, P2=OUTPUT)

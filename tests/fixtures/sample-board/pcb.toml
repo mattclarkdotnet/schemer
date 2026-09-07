@@ -1,0 +1,5 @@
+[workspace]
+pcb-version = "0.4"
+
+[access]
+allow = ["*"]

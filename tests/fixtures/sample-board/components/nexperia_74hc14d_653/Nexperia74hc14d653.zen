@@ -1,0 +1,52 @@
+"""Nexperia 74HC14D,653 hex inverting Schmitt trigger."""
+
+A1 = io(Net)
+Y1 = io(Net)
+A2 = io(Net)
+Y2 = io(Net)
+A3 = io(Net)
+Y3 = io(Net)
+GND = io(Ground)
+Y4 = io(Net)
+A4 = io(Net)
+Y5 = io(Net)
+A5 = io(Net)
+Y6 = io(Net)
+A6 = io(Net)
+VCC = io(Power)
+
+Component(
+    name="74HC14D_653",
+    prefix="U",
+    symbol=Symbol(library="74xx.kicad_sym", name="74HC14"),
+    footprint=File("./SOIC-14_3.9x8.7mm_P1.27mm.kicad_mod"),
+    part=Part(
+        mpn="74HC14D,653",
+        manufacturer="Nexperia",
+        datasheet="https://assets.nexperia.com/documents/data-sheet/74HC_HCT14.pdf",
+    ),
+    pins={
+        "1": A1,
+        "2": Y1,
+        "3": A2,
+        "4": Y2,
+        "5": A3,
+        "6": Y3,
+        "GND": GND,
+        "8": Y4,
+        "9": A4,
+        "10": Y5,
+        "11": A5,
+        "12": Y6,
+        "13": A6,
+        "VCC": VCC,
+    },
+    properties={
+        "value": "74HC14D,653",
+        "LCSC": "C5605",
+        "assembly": "JLCPCB Basic SMT; Economic PCBA",
+        "catalog_stock_observed": "312243 on 2026-08-10; not JLC assembly stock",
+        "BOM Comments": "Three gates parallel through separate ballast resistors; unused inputs must not float",
+    },
+    type="logic_inverter_schmitt",
+)

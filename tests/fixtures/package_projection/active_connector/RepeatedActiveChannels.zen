@@ -1,0 +1,69 @@
+"""Three generic active channels with one local series input each."""
+
+Resistor = Module("@stdlib/generics/Resistor.zen")
+
+VCC = io("VCC", Power, direction="input")
+GND = io("GND", Ground)
+INPUT_A = io("INPUT_A", Net, direction="input")
+INPUT_B = io("INPUT_B", Net, direction="input")
+INPUT_C = io("INPUT_C", Net, direction="input")
+
+SIGNAL_A = Net(name="SIGNAL_A")
+SIGNAL_B = Net(name="SIGNAL_B")
+SIGNAL_C = Net(name="SIGNAL_C")
+AUX_A_1 = Net(name="AUX_A_1")
+AUX_A_2 = Net(name="AUX_A_2")
+AUX_B_1 = Net(name="AUX_B_1")
+AUX_B_2 = Net(name="AUX_B_2")
+AUX_C_1 = Net(name="AUX_C_1")
+AUX_C_2 = Net(name="AUX_C_2")
+
+Resistor(name="R_A", value="100", package="0603", P1=INPUT_A, P2=SIGNAL_A)
+Resistor(name="R_B", value="100", package="0603", P1=INPUT_B, P2=SIGNAL_B)
+Resistor(name="R_C", value="100", package="0603", P1=INPUT_C, P2=SIGNAL_C)
+
+Component(
+    name="ACTIVE_A",
+    prefix="U",
+    symbol=Symbol(library="ActiveConnector.kicad_sym", name="ACTIVE_CONNECTOR"),
+    footprint=File("ActiveConnector.kicad_mod"),
+    part=Part(mpn="GENERIC-ACTIVE-A", manufacturer="Generic"),
+    pins={
+        "VCC": VCC,
+        "GND": GND,
+        "SIGNAL": SIGNAL_A,
+        "AUX_A": AUX_A_1,
+        "AUX_B": AUX_A_2,
+    },
+    type="transceiver",
+)
+Component(
+    name="ACTIVE_B",
+    prefix="U",
+    symbol=Symbol(library="ActiveConnector.kicad_sym", name="ACTIVE_CONNECTOR"),
+    footprint=File("ActiveConnector.kicad_mod"),
+    part=Part(mpn="GENERIC-ACTIVE-B", manufacturer="Generic"),
+    pins={
+        "VCC": VCC,
+        "GND": GND,
+        "SIGNAL": SIGNAL_B,
+        "AUX_A": AUX_B_1,
+        "AUX_B": AUX_B_2,
+    },
+    type="transceiver",
+)
+Component(
+    name="ACTIVE_C",
+    prefix="U",
+    symbol=Symbol(library="ActiveConnector.kicad_sym", name="ACTIVE_CONNECTOR"),
+    footprint=File("ActiveConnector.kicad_mod"),
+    part=Part(mpn="GENERIC-ACTIVE-C", manufacturer="Generic"),
+    pins={
+        "VCC": VCC,
+        "GND": GND,
+        "SIGNAL": SIGNAL_C,
+        "AUX_A": AUX_C_1,
+        "AUX_B": AUX_C_2,
+    },
+    type="transceiver",
+)

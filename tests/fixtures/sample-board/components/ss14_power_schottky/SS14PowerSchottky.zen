@@ -1,0 +1,28 @@
+"""MDD SS14 SMA Schottky retained for the Pico VSYS power path."""
+
+CATHODE = io(Net)
+ANODE = io(Net)
+
+Component(
+    name="POWER_SCHOTTKY",
+    part=builtin.Part(
+        mpn="SS14",
+        manufacturer="MDD (Microdiode Semiconductor)",
+        datasheet="https://www.lcsc.com/datasheet/lcsc_datasheet_2407101109_MDD-Microdiode-Semiconductor-SS14_C2480.pdf",
+    ),
+    symbol=Symbol("./symbols/Device.kicad_sym", name="D_Schottky"),
+    footprint=File("./footprints/D_SMA.kicad_mod"),
+    prefix="D",
+    pins={
+        "K": CATHODE,
+        "A": ANODE,
+    },
+    properties={
+        "value": "SS14",
+        "LCSC": "C2480",
+        "assembly": "JLCPCB Basic SMT; Economic PCBA",
+        "lcsc_distributor_stock_observed": "1955979 catalogue stock on 2026-08-05",
+        "BOM Comments": "Pico VSYS series power-path diode; do not replace with a small-signal-only part",
+    },
+    type="diode",
+)
