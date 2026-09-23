@@ -6,20 +6,19 @@ SHELL = io(Net)
 Component(
     name="CAX_AV_104A_R",
     prefix="J",
-    symbol=Symbol("./symbols/Connector_Generic.kicad_sym", name="Conn_01x02"),
+    symbol=Symbol("./symbols/Connector_Coaxial.kicad_sym", name="Conn_Coaxial"),
     footprint=File("./footprints/CAX_AV_104A_R.kicad_mod"),
     part=Part(
         mpn="AV-104A-R",
         manufacturer="CAX",
         datasheet="./docs/cax-av-104a-r.pdf",
     ),
-    pins={"Pin_1": CENTRE, "Pin_2": SHELL},
+    pins={"In": CENTRE, "Ext": SHELL},
     properties={
         "value": "AV-104A-R isolated coaxial S/PDIF output",
         "LCSC": "C54123379",
         "JLCPCB": "C54123379",
         "assembly": "JLCPCB Extended through-hole catalogue; manualWeld placement available",
-        "BOM Comments": "Toybox drawing-verified centre/shell footprint mapping",
     },
     type="connector",
 )

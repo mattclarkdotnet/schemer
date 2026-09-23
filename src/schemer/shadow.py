@@ -28,7 +28,6 @@ _EXCLUDED_SUFFIXES = {
     ".jpg",
     ".kicad_pcb",
     ".kicad_prl",
-    ".kicad_pro",
     ".pdf",
     ".png",
     ".step",
@@ -83,7 +82,12 @@ def _copy_source_tree(source: Path, destination: Path) -> None:
 
     for path in sorted(source.rglob("*")):
         relative = path.relative_to(source)
-        if any(part in _EXCLUDED_DIRECTORY_NAMES for part in relative.parts):
+        # Keep the small KiCad project file needed by `pcb apply schematic`.
+        # The generated schematic and every physical-layout artifact remain
+        # excluded, so each proposal starts from compiler-produced structure.
+        if any(part in _EXCLUDED_DIRECTORY_NAMES for part in relative.parts) and (
+            path.suffix.lower() != ".kicad_pro"
+        ):
             continue
         if path.is_dir():
             continue

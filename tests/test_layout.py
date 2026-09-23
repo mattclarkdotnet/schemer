@@ -10,6 +10,7 @@ from schemer.layout import (
     replace_position_block,
     resolve_module_position_ids,
     source_diff,
+    source_position_ids,
     symbol_id_to_comment_key,
 )
 from schemer.toolchain import ToolchainError
@@ -34,6 +35,25 @@ def test_format_position_block_uses_natural_order() -> None:
         "# pcb:sch R10.R x=10.0000 y=20.0000 rot=0\n"
         "# pcb:sch VCC.0 x=50.0000 y=60.0000 rot=0 mirror=x\n"
     )
+
+
+def test_source_position_ids_restores_local_and_renamed_module_net_names() -> None:
+    module = ModuleLayout(
+        instance_ref="/project/Board.zen:<root>.POWER",
+        source_path=Path("Power.zen"),
+        positions={
+            "comp:C1.C": Position(1, 2),
+            "sym:V12_PROTECTED#0": Position(3, 4),
+            "sym:POWER.LOCAL_RAIL#1": Position(5, 6),
+        },
+        source_net_names={"V12_PROTECTED": "DC_INPUT"},
+    )
+
+    assert source_position_ids(module) == {
+        "comp:C1.C": Position(1, 2),
+        "sym:DC_INPUT#0": Position(3, 4),
+        "sym:LOCAL_RAIL#1": Position(5, 6),
+    }
 
 
 def test_replace_position_block_preserves_ordinary_source() -> None:

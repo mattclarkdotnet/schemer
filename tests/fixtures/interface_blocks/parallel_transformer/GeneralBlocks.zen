@@ -1,0 +1,25 @@
+"""Two equal-sized ICs, local bypasses, and an unanchored RC chain."""
+Resistor = Module("@stdlib/generics/Resistor.zen")
+Capacitor = Module("@stdlib/generics/Capacitor.zen")
+VDD_A = Power("VDD_A")
+VDD_B = Power("VDD_B")
+GND = Ground("GND")
+A = Net("A")
+B = Net("B")
+IN = Net("IN")
+MID = Net("MID")
+OUT = Net("OUT")
+for name, rail, signal in [("FIRST", VDD_A, A), ("SECOND", VDD_B, B)]:
+    Component(
+        name=name, prefix="U",
+        symbol=Symbol("GenericBlocks.kicad_sym", "TRANSFORMER"),
+        footprint=File("GenericBlock.kicad_mod"),
+        part=Part(mpn="GENERIC", manufacturer="Generic"),
+        pins={"PRI": rail, "PRI_RET": GND, "SEC": signal, "SEC_RET": GND},
+        type="active_stage",
+    )
+    Capacitor(name=name + "_BYPASS", value="100nF", package="0603", P1=rail, P2=GND)
+    Resistor(name=name + "_LOAD", value="10k", package="0603", P1=signal, P2=GND)
+Resistor(name="SERIES_A", value="1k", package="0603", P1=IN, P2=MID)
+Resistor(name="SERIES_B", value="1k", package="0603", P1=MID, P2=OUT)
+Capacitor(name="SHUNT", value="10nF", package="0603", P1=OUT, P2=GND)

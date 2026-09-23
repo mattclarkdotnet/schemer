@@ -7,7 +7,7 @@ GND = io(Ground)
 Component(
     name="PLT237_T10WH",
     prefix="U",
-    symbol=Symbol("./symbols/Connector_Generic.kicad_sym", name="Conn_01x05"),
+    symbol=Symbol("./symbols/Plt237T10wh.kicad_sym", name="PLT237_T10WH"),
     footprint=File("./footprints/PLT237_T10WH.kicad_mod"),
     part=Part(
         mpn="PLT237/T10WH",
@@ -15,11 +15,11 @@ Component(
         datasheet="./docs/PLT237_T10WH.pdf",
     ),
     pins={
-        "Pin_1": VIN,
-        "Pin_2": VCC,
-        "Pin_3": GND,
-        "Pin_4": NotConnected(),
-        "Pin_5": NotConnected(),
+        "VIN": VIN,
+        "VCC": VCC,
+        "GND": GND,
+        "NC4": NotConnected(),
+        "NC5": NotConnected(),
     },
     properties={
         "value": "PLT237/T10WH optical S/PDIF output",

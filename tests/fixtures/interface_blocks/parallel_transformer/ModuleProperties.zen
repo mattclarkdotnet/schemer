@@ -1,0 +1,12 @@
+"""A composite module instance with authored schematic purpose."""
+
+Block = Module("FunctionBlock.zen")
+
+Block(
+    name="FILTER",
+    properties={
+        "schematic_properties": {
+            "function": "signal-filter",
+        },
+    },
+)

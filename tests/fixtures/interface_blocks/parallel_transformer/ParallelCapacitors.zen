@@ -1,0 +1,9 @@
+"""A local parallel bank and a capacitor on a different return domain."""
+Capacitor = Module("@stdlib/generics/Capacitor.zen")
+VDD = Power("VDD")
+GND = Ground("GND")
+OTHER_GND = Ground("OTHER_GND")
+Capacitor(name="SMALL", value="100nF", package="0603", P1=VDD, P2=GND)
+Capacitor(name="MEDIUM", value="1uF", package="0603", P1=GND, P2=VDD)
+Capacitor(name="LARGE", value="10uF", package="0603", P1=VDD, P2=GND)
+Capacitor(name="OTHER", value="100nF", package="0603", P1=VDD, P2=OTHER_GND)

@@ -46,15 +46,15 @@ USB_HOST_GND = ClassedGround(impedance=GROUND_NETCLASS_IMPEDANCE)
 USB_HOST_VDD = ClassedPower(impedance=POWER_NETCLASS_IMPEDANCE)
 USB_HOST_DP_RAW = Net(impedance=USB_DIFFERENTIAL_NETCLASS_IMPEDANCE)
 USB_HOST_DN_RAW = Net(impedance=USB_DIFFERENTIAL_NETCLASS_IMPEDANCE)
-USB_HOST_DP_ISOLATOR = Net(impedance=USB_DIFFERENTIAL_NETCLASS_IMPEDANCE)
-USB_HOST_DN_ISOLATOR = Net(impedance=USB_DIFFERENTIAL_NETCLASS_IMPEDANCE)
+USB_HOST_DP_ISOLATOR = Net(impedance=USB_DIFFERENTIAL_NETCLASS_IMPEDANCE, symbol=Symbol("SchemerSignalTermination.kicad_sym"))
+USB_HOST_DN_ISOLATOR = Net(impedance=USB_DIFFERENTIAL_NETCLASS_IMPEDANCE, symbol=Symbol("SchemerSignalTermination.kicad_sym"))
 USB_HOST_CC1 = Net(impedance=LOGIC_NETCLASS_IMPEDANCE)
 USB_HOST_CC2 = Net(impedance=LOGIC_NETCLASS_IMPEDANCE)
 USB_HOST_SHIELD = Net()
 
 USB_DEVICE_VDD = ClassedPower(impedance=POWER_NETCLASS_IMPEDANCE)
-USB_DEVICE_DP_ISOLATOR = Net(impedance=USB_DIFFERENTIAL_NETCLASS_IMPEDANCE)
-USB_DEVICE_DN_ISOLATOR = Net(impedance=USB_DIFFERENTIAL_NETCLASS_IMPEDANCE)
+USB_DEVICE_DP_ISOLATOR = Net(impedance=USB_DIFFERENTIAL_NETCLASS_IMPEDANCE, symbol=Symbol("SchemerSignalTermination.kicad_sym"))
+USB_DEVICE_DN_ISOLATOR = Net(impedance=USB_DIFFERENTIAL_NETCLASS_IMPEDANCE, symbol=Symbol("SchemerSignalTermination.kicad_sym"))
 USB_DEVICE_DP_PIGTAIL = Net(impedance=USB_DIFFERENTIAL_NETCLASS_IMPEDANCE)
 USB_DEVICE_DN_PIGTAIL = Net(impedance=USB_DIFFERENTIAL_NETCLASS_IMPEDANCE)
 USB_DEVICE_SHIELD = Net()
@@ -68,11 +68,16 @@ UsbC(
     CC1=USB_HOST_CC1,
     CC2=USB_HOST_CC2,
     SHIELD=USB_HOST_SHIELD,
-    properties={"submodule": "UsbDevice"},
+    properties={
+        "submodule": "UsbDevice",
+        "schematic_properties": {
+            "function": "usb-device-receptacle",
+        },
+    },
 )
 
 
-def cc_pulldown(name, cc):
+def cc_pulldown(name, cc, pin):
     Resistor(
         name=name,
         P1=cc,
@@ -85,11 +90,17 @@ def cc_pulldown(name, cc):
             "LCSC": "C25905",
             "assembly": "JLCPCB Basic SMT; Economic PCBA",
             "submodule": "UsbDevice",
+            "schematic_properties": {
+                "role": "pulldown",
+                "group": "usb-c-configuration",
+                "owner": REF.J_USB_DEVICE,
+                "pin": pin,
+            },
         },
     )
 
 
-def usb_termination(name, source, sink):
+def usb_termination(name, source, sink, pin):
     Resistor(
         name=name,
         P1=source,
@@ -103,11 +114,17 @@ def usb_termination(name, source, sink):
             "assembly": "JLCPCB Extended SMT; Economic eligibility requires quote",
             "catalog_stock_observed": "171267 on 2026-08-16; not JLC assembly stock",
             "submodule": "UsbDevice",
+            "schematic_properties": {
+                "role": "series-termination",
+                "group": "usb-full-speed-termination",
+                "owner": REF.U_USB_ISOLATOR,
+                "pin": pin,
+            },
         },
     )
 
 
-def usb_bypass(name, supply, ground):
+def usb_bypass(name, supply, ground, owner, pin, group):
     Capacitor(
         name=name,
         P1=supply,
@@ -122,17 +139,23 @@ def usb_bypass(name, supply, ground):
             "LCSC": "C1525",
             "assembly": "JLCPCB Basic SMT; Economic PCBA",
             "submodule": "UsbDevice",
+            "schematic_properties": {
+                "role": "bypass",
+                "group": group,
+                "owner": owner,
+                "pin": pin,
+            },
         },
     )
 
 
-cc_pulldown(REF.R_CC1, USB_HOST_CC1)
-cc_pulldown(REF.R_CC2, USB_HOST_CC2)
+cc_pulldown(REF.R_CC1, USB_HOST_CC1, "CC1")
+cc_pulldown(REF.R_CC2, USB_HOST_CC2, "CC2")
 
-usb_termination(REF.R_USB_HOST_DP, USB_HOST_DP_RAW, USB_HOST_DP_ISOLATOR)
-usb_termination(REF.R_USB_HOST_DN, USB_HOST_DN_RAW, USB_HOST_DN_ISOLATOR)
-usb_termination(REF.R_USB_DEVICE_DP, USB_DEVICE_DP_ISOLATOR, USB_DEVICE_DP_PIGTAIL)
-usb_termination(REF.R_USB_DEVICE_DN, USB_DEVICE_DN_ISOLATOR, USB_DEVICE_DN_PIGTAIL)
+usb_termination(REF.R_USB_HOST_DP, USB_HOST_DP_RAW, USB_HOST_DP_ISOLATOR, "UD+")
+usb_termination(REF.R_USB_HOST_DN, USB_HOST_DN_RAW, USB_HOST_DN_ISOLATOR, "UD-")
+usb_termination(REF.R_USB_DEVICE_DP, USB_DEVICE_DP_ISOLATOR, USB_DEVICE_DP_PIGTAIL, "DD+")
+usb_termination(REF.R_USB_DEVICE_DN, USB_DEVICE_DN_ISOLATOR, USB_DEVICE_DN_PIGTAIL, "DD-")
 
 UsbIsolator(
     name=REF.U_USB_ISOLATOR,
@@ -150,10 +173,29 @@ UsbIsolator(
     SPD=USB_DEVICE_VDD,
     VDD2=USB_DEVICE_VDD,
     VBUS2=PICO_VSYS,
-    properties={"submodule": "UsbDevice"},
+    properties={
+        "submodule": "UsbDevice",
+        "schematic_properties": {
+            "function": "usb-data-isolator",
+        },
+    },
 )
-usb_bypass(REF.C_USB_HOST_VDD, USB_HOST_VDD, USB_HOST_GND)
-usb_bypass(REF.C_USB_DEVICE_VDD, USB_DEVICE_VDD, DIGITAL_GND)
+usb_bypass(
+    REF.C_USB_HOST_VDD,
+    USB_HOST_VDD,
+    USB_HOST_GND,
+    REF.U_USB_ISOLATOR,
+    "VDD1",
+    "host-side-power",
+)
+usb_bypass(
+    REF.C_USB_DEVICE_VDD,
+    USB_DEVICE_VDD,
+    DIGITAL_GND,
+    REF.U_USB_ISOLATOR,
+    "VDD2",
+    "device-side-power",
+)
 
 Pigtail(
     name=REF.J_USB_PIGTAIL,
@@ -162,5 +204,46 @@ Pigtail(
     DP=USB_DEVICE_DP_PIGTAIL,
     GND=DIGITAL_GND,
     SHIELD=USB_DEVICE_SHIELD,
-    properties={"submodule": "UsbDevice"},
+    properties={
+        "submodule": "UsbDevice",
+        "schematic_properties": {
+            "function": "pico-usb-pigtail",
+        },
+    },
 )
+
+# pcb:sch C301.C x=1037.7000 y=415.2600 rot=90
+# pcb:sch C302.C x=1742.5000 y=415.2600 rot=270
+# pcb:sch DIGITAL_GND.0 x=2377.3000 y=419.7000 rot=0
+# pcb:sch DIGITAL_GND.1 x=1440.9000 y=612.1000 rot=0
+# pcb:sch DIGITAL_GND.2 x=1820.6000 y=470.5000 rot=0
+# pcb:sch J301.USB4105_GF_A x=110.5000 y=138.4000 rot=0
+# pcb:sch J302.MOLEX_68784_PIGTAIL x=2470.0000 y=290.8000 rot=0
+# pcb:sch PICO_VSYS.0 x=1433.2800 y=121.9000 rot=0
+# pcb:sch R301.R x=517.8800 y=340.0000 rot=0
+# pcb:sch R302.R x=617.8800 y=340.0000 rot=0
+# pcb:sch R303.R x=555.5000 y=333.9800 rot=270
+# pcb:sch R304.R x=655.5000 y=283.1800 rot=270
+# pcb:sch R305.R x=2228.2000 y=346.6800 rot=270
+# pcb:sch R306.R x=2128.2000 y=321.2800 rot=270
+# pcb:sch U301.ADUM3160BRWZ_RL x=1288.5000 y=227.3000 rot=0
+# pcb:sch USB_DEVICE_DN_ISOLATOR.0 x=2035.5000 y=327.6300 rot=270
+# pcb:sch USB_DEVICE_DN_ISOLATOR.1 x=1622.5000 y=378.4300 rot=90
+# pcb:sch USB_DEVICE_DP_ISOLATOR.0 x=2135.5000 y=353.0300 rot=270
+# pcb:sch USB_DEVICE_DP_ISOLATOR.1 x=1622.5000 y=353.0300 rot=90
+# pcb:sch USB_DEVICE_SHIELD.0 x=2377.3000 y=403.8300 rot=270
+# pcb:sch USB_DEVICE_VDD.0 x=1614.8800 y=160.9000 rot=0
+# pcb:sch USB_DEVICE_VDD.1 x=1694.8800 y=365.1000 rot=0
+# pcb:sch USB_HOST_DN_ISOLATOR.0 x=786.3000 y=289.5300 rot=90
+# pcb:sch USB_HOST_DN_ISOLATOR.1 x=1195.8000 y=378.4300 rot=270
+# pcb:sch USB_HOST_DP_ISOLATOR.0 x=686.3000 y=340.3300 rot=90
+# pcb:sch USB_HOST_DP_ISOLATOR.1 x=1195.8000 y=353.0300 rot=270
+# pcb:sch USB_HOST_GND.0 x=652.8000 y=403.5000 rot=0
+# pcb:sch USB_HOST_GND.1 x=199.4000 y=624.8000 rot=0
+# pcb:sch USB_HOST_GND.2 x=1364.7000 y=612.1000 rot=0
+# pcb:sch USB_HOST_GND.3 x=985.0000 y=470.5000 rot=0
+# pcb:sch USB_HOST_SHIELD.0 x=134.6300 y=612.1000 rot=0
+# pcb:sch USB_HOST_VBUS.0 x=436.8800 y=72.0000 rot=0
+# pcb:sch USB_HOST_VBUS.1 x=1382.4800 y=121.9000 rot=0
+# pcb:sch USB_HOST_VDD.0 x=1200.8800 y=212.7000 rot=0
+# pcb:sch USB_HOST_VDD.1 x=1120.8800 y=365.1000 rot=0

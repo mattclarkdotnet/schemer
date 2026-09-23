@@ -18,6 +18,7 @@ from schemer.blocks import (
 from schemer.hints import Endpoint, HintSet
 from schemer.layout import ModuleLayout, Position
 from schemer.layout_metrics import Envelope, _with_annotation_envelope
+from schemer.roles import component_roles
 from schemer.signal_terminations import SYMBOL as SIGNAL_TERMINATION_SYMBOL
 from schemer.symbol_geometry import (
     _NON_OWNER_TYPES,
@@ -146,11 +147,24 @@ class _NetSymbolAttachment:
     target: Point
     rotation: float = 0.0
     outward_side: str | None = None
+    origins: tuple[Point, ...] = ()
 
     def position(self) -> Position:
         properties = self.net.get("properties")
         if not isinstance(properties, dict) or "__symbol_value" not in properties:
-            return Position(self.target.x, self.target.y, rotation=self.rotation)
+            # Plain named nets acquire Schemer's neutral termination symbol
+            # when the proposal shadow is materialised. Position against that
+            # future symbol now: its stored anchor is not its electrical pin,
+            # and treating the target as both creates an otherwise unexplained
+            # dogleg after recompilation.
+            projected = {
+                "properties": {"__symbol_value": SIGNAL_TERMINATION_SYMBOL},
+            }
+            return position_net_symbol_pin(
+                projected,
+                self.target,
+                rotation=self.rotation,
+            )
         return position_net_symbol_pin(
             self.net,
             self.target,
@@ -159,9 +173,10 @@ class _NetSymbolAttachment:
 
 
 class _NetSymbols:
-    def __init__(self) -> None:
+    def __init__(self, *, qualified: bool = False) -> None:
         self._next_suffix: dict[str, int] = {}
         self.rail_envelopes: list[Envelope] = []
+        self._qualified = qualified
 
     def add(
         self,
@@ -202,7 +217,8 @@ class _NetSymbols:
                         position = replace(position, x=position.x + delta)
                         envelope = envelope.translated(delta, 0)
             self.rail_envelopes.append(envelope)
-        raw_name = str(net.get("name", net_ref)).rsplit(".", 1)[-1]
+        full_name = str(net.get("name", net_ref))
+        raw_name = full_name if self._qualified else full_name.rsplit(".", 1)[-1]
         suffix = self._next_suffix.get(raw_name, 0)
         self._next_suffix[raw_name] = suffix + 1
         positions[f"sym:{raw_name}#{suffix}"] = position
@@ -237,19 +253,67 @@ def _attachment_order(attachment: _NetSymbolAttachment) -> tuple:
 def _clear_rail_signal_lanes(
     attachments: list[_NetSymbolAttachment],
     lanes: list[tuple[str, Envelope]],
+    endpoint_lanes: list[tuple[str, Point]] | None = None,
 ) -> list[_NetSymbolAttachment]:
     """Let lateral rail glyphs drift outward; keep useful signal lanes fixed."""
+    endpoint_lanes = endpoint_lanes or []
     result = []
     for attachment in attachments:
         side = attachment.outward_side
         if side in {"left", "right"} and _is_rail_net(attachment.net_ref, attachment.net):
+            same_side_lanes = [
+                lane for lane_side, lane in lanes
+                if lane_side == side
+            ]
+            if len(attachment.origins) > 1:
+                # A repeated rail becomes one vertical face-local trunk. Its
+                # topology is only simple when the trunk is beyond every
+                # established signal endpoint on that face; putting it at the
+                # shortest x-coordinate makes the router detour each signal
+                # around the trunk. Deliberately accept the longer rail stubs.
+                min_y = min(
+                    attachment.target.y,
+                    min(point.y for point in attachment.origins),
+                )
+                max_y = max(
+                    attachment.target.y,
+                    max(point.y for point in attachment.origins),
+                )
+                endpoints = [
+                    point for lane_side, point in endpoint_lanes
+                    if lane_side == side and min_y <= point.y <= max_y
+                ]
+                overlapping = [
+                    lane for lane in same_side_lanes
+                    if min_y < lane.max_y and lane.min_y < max_y
+                ]
+                if endpoints:
+                    target_x = (
+                        min(point.x for point in endpoints) - _LOCAL_GAP
+                        if side == "left"
+                        else max(point.x for point in endpoints) + _LOCAL_GAP
+                    )
+                elif overlapping:
+                    target_x = (
+                        min(lane.min_x for lane in overlapping) - _LOCAL_GAP
+                        if side == "left"
+                        else max(lane.max_x for lane in overlapping) + _LOCAL_GAP
+                    )
+                else:
+                    target_x = attachment.target.x
+                if endpoints or overlapping:
+                    if (side == "left" and target_x < attachment.target.x) or (
+                        side == "right" and target_x > attachment.target.x
+                    ):
+                        attachment = replace(
+                            attachment,
+                            target=Point(target_x, attachment.target.y),
+                        )
             for lane_side, lane in sorted(lanes, key=lambda item: item[1].min_x,
                                           reverse=side == "left"):
                 if lane_side != side:
                     continue
-                bounds = placed_symbol_bounds(
-                    {"attributes": attachment.net.get("properties", {})}, attachment.position(),
-                )
+                bounds = _rail_drawing_envelope(attachment.net, attachment.position())
                 if (bounds.min_y < lane.max_y and lane.min_y < bounds.max_y
                         and bounds.min_x < lane.max_x and lane.min_x < bounds.max_x):
                     dx = (lane.min_x - _LOCAL_GAP - bounds.max_x if side == "left"
@@ -281,6 +345,20 @@ def _rail_drawing_envelope(net: dict[str, Any], position: Position) -> Envelope:
     else:
         envelope = Envelope(position.x, position.y, position.x, position.y)
     return _with_annotation_envelope(envelope, (str(net.get("name", "")).rsplit(".", 1)[-1],))
+
+
+def _net_symbol_drawing_envelope(attachment: _NetSymbolAttachment) -> Envelope:
+    """Measure a named endpoint including its projected drawing and caption."""
+
+    properties = attachment.net.get("properties", {})
+    if "__symbol_value" not in properties:
+        properties = {**properties, "__symbol_value": SIGNAL_TERMINATION_SYMBOL}
+    position = attachment.position()
+    bounds = placed_symbol_bounds({"attributes": properties}, position)
+    return _with_annotation_envelope(
+        Envelope(bounds.min_x, bounds.min_y, bounds.max_x, bounds.max_y),
+        (str(attachment.net.get("name", attachment.net_ref)).rsplit(".", 1)[-1],),
+    )
 
 
 def _shunt_drawing_envelope(
@@ -615,8 +693,19 @@ def _net_symbol_attachment(
             target = Point(target.x, target.y - _LOCAL_RAIL_STUB)
         rotation = 180.0 if side == "bottom" else 0.0
     else:
-        rotation = 0.0
-    return _NetSymbolAttachment(net_ref, net, target, rotation, side)
+        # The viewer routes into a one-pin symbol according to that pin's
+        # orientation, even when the pin length is zero.  A neutral endpoint
+        # left at its default vertical orientation therefore turns an
+        # otherwise horizontal side-face stub into a small rectangular
+        # dogleg.  Orient the endpoint from the already chosen wire direction;
+        # distance is not allowed to compensate for a topology mismatch.
+        rotation = {
+            "left": 270.0,
+            "right": 90.0,
+            "top": 180.0,
+            "bottom": 0.0,
+        }[side]
+    return _NetSymbolAttachment(net_ref, net, target, rotation, side, points)
 
 
 def _clusters(points: tuple[Point, ...], side: str) -> tuple[tuple[Point, ...], ...]:
@@ -652,9 +741,23 @@ def _anchor_net_symbol_attachments(
             nets_by_ref[net_ref] = net
     result: list[_NetSymbolAttachment] = []
     for (net_ref, side), points in sorted(by_net_side.items()):
-        for cluster in _clusters(tuple(points), side):
-            net = nets_by_ref[net_ref]
-            result.append(_net_symbol_attachment(net_ref, net, cluster, side))
+        net = nets_by_ref[net_ref]
+        # One rail on one device face is one visible wireset. Splitting it by
+        # pin distance produces a row of duplicated L-shaped terminations even
+        # though the reader sees one supply or return function. Different
+        # faces remain separate so the router never loops around the body.
+        attachment = _net_symbol_attachment(net_ref, net, tuple(points), side)
+        if len(points) > 1 and side in {"left", "right"}:
+            terminal_y = (
+                bounds.max_y + _LOCAL_RAIL_STUB
+                if _is_return_net(net_ref, net)
+                else bounds.min_y - _LOCAL_RAIL_STUB
+            )
+            attachment = replace(
+                attachment,
+                target=Point(attachment.target.x, terminal_y),
+            )
+        result.append(attachment)
     return tuple(result)
 
 
@@ -876,12 +979,18 @@ def _apply_series_annotation_clearance(
 
 
 def _place_shunts(
+    instances: dict[str, Any],
     components: tuple[_Component, ...],
     connectors: tuple[_Component, ...],
     connector_positions: dict[str, Position],
     positions: dict[str, Position],
 ) -> tuple[set[str], tuple[_NetSymbolAttachment, ...]]:
     component_refs = tuple(component.ref for component in components)
+    pulldown_roles = {
+        role.component_ref: role
+        for role in component_roles(instances, components)
+        if role.kind == "pulldown"
+    }
     used: set[str] = set()
     attachments: list[_NetSymbolAttachment] = []
     for connector in connectors:
@@ -923,16 +1032,47 @@ def _place_shunts(
             for passive, signal_terminal, _, _ in ordered
         }
         return_groups: dict[tuple[str, str], list[tuple[_Component, Position, str]]] = {}
+        authored = [entry for entry in ordered if entry[0].ref in pulldown_roles]
+        authored_row_y = (
+            max(entry[3] for entry in authored) + 100.0 if authored else 0.0
+        )
+        authored_index = {entry[0].ref: index for index, entry in enumerate(authored)}
+        connector_designator = str(connector.instance.get("reference_designator", ""))
         for passive, signal_terminal, return_terminal, source_y in ordered:
             source_side = source_sides[passive.ref]
-            if source_side == "left":
+            role = pulldown_roles.get(passive.ref)
+            if role is not None:
+                if (
+                    role.owner != connector_designator
+                    or role.pin not in connector.terminals
+                    or connector.terminals[role.pin][0]
+                    != passive.terminals[signal_terminal][0]
+                ):
+                    raise ToolchainError(
+                        f"{passive.ref}: pulldown role does not name its connector pin"
+                    )
+                outward = -1.0 if source_side == "left" else 1.0
+                base = _oriented_terminal_vector(
+                    passive,
+                    signal_terminal,
+                    return_terminal,
+                    axis="y",
+                    direction=1,
+                )
+                target_x = (
+                    bounds.min_x if source_side == "left" else bounds.max_x
+                ) + outward * (160.0 + authored_index[passive.ref] * 100.0)
+                target_y = authored_row_y
+            elif source_side == "left":
                 base = _passive_orientation(passive, return_terminal, signal_terminal)
                 target_x = bounds.min_x - _LOCAL_RAIL_STUB
+                target_y = source_y
             else:
                 base = _passive_orientation(passive, signal_terminal, return_terminal)
                 target_x = bounds.max_x + _LOCAL_RAIL_STUB
+                target_y = source_y
             signal_pin = _mean_point(pin_positions(passive.instance, base, signal_terminal))
-            target = Point(target_x, source_y)
+            target = Point(target_x, target_y)
             placed = _translated(base, signal_pin, target)
             positions[passive.symbol_id] = placed
             return_net_ref = passive.terminals[return_terminal][0]
@@ -1610,11 +1750,12 @@ def _transformer_chain_block(
             chain.transformer.symbol_id.removeprefix("comp:"), chain.transformer_return_terminal
         ),
     )
-    # A local return requires the paired outgoing chain to stay within a
-    # local wiring span too. The normal short branch stub is generator policy;
-    # no distance or coordinate is supplied by a hint.
-    secondary_stub = _LOCAL_RAIL_STUB if local_return else 120.0
-    connector_stub = _LOCAL_RAIL_STUB if local_return else 180.0
+    # Local wires need pin-exit clearance, not an empty routing channel.
+    # Keep enough room at the primary for its separate downward return.
+    inline_span = 4 * _PIN_EXIT_STUB
+    primary_span = 8 * _PIN_EXIT_STUB
+    secondary_stub = _LOCAL_RAIL_STUB if local_return else inline_span
+    connector_stub = _LOCAL_RAIL_STUB if local_return else inline_span
     electrical_types = symbol_pin_electrical_types(chain.driver.instance)
     desired = {terminal: "left" for terminal in chain.input_terminals}
     desired.update({link.owner_terminal: "right" for link in chain.links})
@@ -1657,7 +1798,7 @@ def _transformer_chain_block(
         placed = _translated(
             base,
             passive_pin,
-            Point(owner_pin.x + 120.0, owner_pin.y),
+            Point(owner_pin.x + inline_span, owner_pin.y),
         )
         positions[link.passive.symbol_id] = placed
         remote_points.append(
@@ -1693,7 +1834,7 @@ def _transformer_chain_block(
     transformer_position = _translated(
         transformer_base,
         transformer_common_pin,
-        Point(common_x + 180.0, common_y),
+        Point(common_x + primary_span, common_y),
     )
     positions[chain.transformer.symbol_id] = transformer_position
 
@@ -1710,7 +1851,7 @@ def _transformer_chain_block(
     shunt_position = _translated(
         shunt_base,
         shunt_common_pin,
-        Point(common_x + _PIN_EXIT_STUB, max(point.y for point in remote_points) + 140.0),
+        Point(common_x + _PIN_EXIT_STUB, max(point.y for point in remote_points) + inline_span),
     )
     positions[chain.shunt.symbol_id] = shunt_position
 
@@ -1920,7 +2061,7 @@ def multi_active_interface_block_from_zero(
     endpoint_bank = compose_column(
         "endpoint-channel-bank",
         channel_blocks,
-        gap=120.0,
+        gap=60.0,
         alignment="start",
     )
     transformer_block = _transformer_chain_block(
@@ -1974,6 +2115,18 @@ def primary_ic_block_from_zero(
     component_refs = tuple(component.ref for component in components)
     boundary_net_names = _module_boundary_net_names(instances[module.instance_ref])
     primary_nets = {net_ref for net_ref, _ in primary.terminals.values()}
+    authored_roles = component_roles(instances, components)
+    pullup_roles = {
+        role.component_ref: role for role in authored_roles if role.kind == "pullup"
+    }
+    pulldown_roles = {
+        role.component_ref: role for role in authored_roles if role.kind == "pulldown"
+    }
+    power_feed_roles = {
+        role.component_ref: role
+        for role in authored_roles
+        if role.kind == "power-feed"
+    }
 
     subordinate_links: dict[str, tuple[str, str, str]] = {}
     for component in subordinate:
@@ -2077,12 +2230,161 @@ def primary_ic_block_from_zero(
         else:
             return None
 
+    shunts_by_ref = {entry[0].ref: entry for entry in shunts}
+    active_by_designator = {
+        str(component.instance.get("reference_designator", "")): component
+        for component in active
+    }
+    authored_owner_refs: dict[str, str] = {}
+    for role in authored_roles:
+        if role.owner is None:
+            continue
+        owner = active_by_designator.get(role.owner)
+        if owner is None:
+            raise ToolchainError(
+                f"{role.component_ref}: authored owner {role.owner!r} is not a local active device"
+            )
+        authored_owner_refs[role.component_ref] = owner.ref
+    unowned_shunts = sorted(
+        branch.ref
+        for branch, _, _, _, _ in shunts
+        if branch.ref not in authored_owner_refs
+    )
+    if unowned_shunts:
+        raise ToolchainError(
+            "primary IC layout requires authored ownership roles for rail branches: "
+            + ", ".join(unowned_shunts)
+        )
+    primary_bias_roles = {
+        **pullup_roles,
+        **{
+            component_ref: role
+            for component_ref, role in pulldown_roles.items()
+            if authored_owner_refs.get(component_ref) == primary.ref
+        },
+    }
+    for component_ref, role in primary_bias_roles.items():
+        entry = shunts_by_ref.get(component_ref)
+        owner = active_by_designator.get(role.owner or "")
+        if entry is None or owner != primary or role.pin not in primary.terminals:
+            raise ToolchainError(
+                f"{component_ref}: {role.kind} owner and pin must name the primary IC terminal"
+            )
+        component, signal_terminal, rail_terminal, signal_net_ref, _ = entry
+        owner_net_ref = primary.terminals[role.pin][0]
+        rail_net_ref, rail_net = component.terminals[rail_terminal]
+        if signal_net_ref != owner_net_ref:
+            raise ToolchainError(
+                f"{component_ref}: {role.kind} signal does not connect to "
+                f"{role.owner}.{role.pin}"
+            )
+        if role.kind == "pullup" and _is_return_net(rail_net_ref, rail_net):
+            raise ToolchainError(f"{component_ref}: pullup rail cannot be a return net")
+        if role.kind == "pulldown" and not _is_return_net(rail_net_ref, rail_net):
+            raise ToolchainError(f"{component_ref}: pulldown rail must be a return net")
+
+    rail_feeds_by_ref = {entry[0].ref: entry for entry in rail_feeds}
+    for component_ref, role in power_feed_roles.items():
+        entry = rail_feeds_by_ref.get(component_ref)
+        owner = active_by_designator.get(role.owner or "")
+        if entry is None or owner != primary or role.pin not in primary.terminals:
+            raise ToolchainError(
+                f"{component_ref}: power-feed owner and pin must name the primary IC terminal"
+            )
+        component, primary_terminal, attached_terminal, remote_terminal = entry
+        if role.pin != primary_terminal:
+            raise ToolchainError(
+                f"{component_ref}: power-feed output does not connect to "
+                f"{role.owner}.{role.pin}"
+            )
+        remote_ref, remote_net = component.terminals[remote_terminal]
+        if not _is_rail_net(remote_ref, remote_net) or _is_return_net(remote_ref, remote_net):
+            raise ToolchainError(f"{component_ref}: power-feed input must be a supply rail")
+
     primary_position = Position(0.0, 0.0, 0.0)
     primary_bounds = placed_symbol_bounds(primary.instance, primary_position)
     positions: dict[str, Position] = {primary.symbol_id: primary_position}
     attachments: list[_NetSymbolAttachment] = []
     labelled_nets: set[str] = set()
     skipped_primary_rails: set[str] = set()
+
+    bias_groups: dict[tuple[str, str], list[tuple[_Component, str, str, Point]]] = {}
+    for component_ref, role in primary_bias_roles.items():
+        component, signal_terminal, rail_terminal, _, rail_net_ref = shunts_by_ref[component_ref]
+        owner_pin = _mean_point(
+            pin_positions(primary.instance, primary_position, role.pin or "")
+        )
+        side = _side(owner_pin, primary_bounds)
+        if side not in {"left", "right"}:
+            raise ToolchainError(f"{component_ref}: pullup owner pin must be on a side face")
+        bias_groups.setdefault((side, rail_net_ref), []).append(
+            (component, signal_terminal, rail_terminal, owner_pin)
+        )
+    for (side, rail_net_ref), entries in sorted(bias_groups.items()):
+        outward = -1.0 if side == "left" else 1.0
+        rail_points = []
+        rail_net = entries[0][0].terminals[entries[0][2]][1]
+        subordinate_net_refs = {
+            net_ref for net_ref, _, _ in subordinate_links.values()
+        }
+        for component, signal_terminal, rail_terminal, owner_pin in sorted(
+            entries, key=lambda entry: (entry[3].y, entry[0].ref)
+        ):
+            signal_net_ref = component.terminals[signal_terminal][0]
+            if signal_net_ref in subordinate_net_refs:
+                # This owner pin continues directly to a subordinate active
+                # device. Keep that signal corridor straight and hang the
+                # pull-up vertically from its midpoint.
+                base = _oriented_terminal_vector(
+                    component,
+                    signal_terminal,
+                    rail_terminal,
+                    axis="y",
+                    direction=-1.0,
+                )
+                target = Point(
+                    owner_pin.x + outward * (_DEVICE_STUB / 2),
+                    owner_pin.y,
+                )
+            else:
+                base = _oriented_terminal_vector(
+                    component,
+                    rail_terminal,
+                    signal_terminal,
+                    axis="x",
+                    direction=-outward,
+                )
+                target = Point(
+                    owner_pin.x + outward * _DEVICE_STUB,
+                    owner_pin.y,
+                )
+            signal_pin = _mean_point(
+                pin_positions(component.instance, base, signal_terminal)
+            )
+            placed = _translated(
+                base,
+                signal_pin,
+                target,
+            )
+            positions[component.symbol_id] = placed
+            rail_points.extend(pin_positions(component.instance, placed, rail_terminal))
+        bus_x = float(median(point.x for point in rail_points))
+        attachments.append(_NetSymbolAttachment(
+            rail_net_ref,
+            rail_net,
+            Point(
+                bus_x,
+                (
+                    max(point.y for point in rail_points) + _NET_SYMBOL_STUB
+                    if _is_return_net(rail_net_ref, rail_net)
+                    else min(point.y for point in rail_points) - _NET_SYMBOL_STUB
+                ),
+            ),
+            rotation=180.0 if _is_return_net(rail_net_ref, rail_net) else 0.0,
+            outward_side=(
+                "bottom" if _is_return_net(rail_net_ref, rail_net) else "top"
+            ),
+        ))
 
     series_lanes: dict[str, int] = {}
     for side in ("left", "right"):
@@ -2117,33 +2419,46 @@ def primary_ic_block_from_zero(
             pin_positions(primary.instance, primary_position, primary_terminal)
         )
         side = _side(primary_pin, primary_bounds)
-        if side not in {"left", "right"}:
+        is_rail_feed = any(component.ref == item[0].ref for item in rail_feeds)
+        power_feed = component.ref in power_feed_roles
+        if side in {"left", "right"}:
+            axis = "x"
+            direction = -1.0 if side == "left" else 1.0
+            target = Point(
+                primary_pin.x
+                + direction
+                * (
+                    _DEVICE_STUB
+                    if power_feed
+                    else (
+                        _LOCAL_BRANCH_SPAN if is_rail_feed else _DEVICE_STUB
+                    )
+                    + series_lanes.get(component.ref, 0) * _SERIES_LANE_OFFSET
+                ),
+                primary_pin.y,
+            )
+        elif side in {"top", "bottom"} and is_rail_feed:
+            axis = "y"
+            direction = -1.0 if side == "top" else 1.0
+            target = Point(
+                primary_pin.x,
+                primary_pin.y
+                + direction * (_DEVICE_STUB if power_feed else _LOCAL_BRANCH_SPAN),
+            )
+        else:
             return None
-        direction = -1.0 if side == "left" else 1.0
         base = _oriented_terminal_vector(
             component,
             attached_terminal,
             remote_terminal,
-            axis="x",
+            axis=axis,
             direction=direction,
         )
         attached_pin = _mean_point(pin_positions(component.instance, base, attached_terminal))
         placed = _translated(
             base,
             attached_pin,
-            Point(
-                primary_pin.x
-                + direction
-                * (
-                    (
-                        _LOCAL_BRANCH_SPAN
-                        if any(component.ref == item[0].ref for item in rail_feeds)
-                        else _DEVICE_STUB
-                    )
-                    + series_lanes.get(component.ref, 0) * _SERIES_LANE_OFFSET
-                ),
-                primary_pin.y,
-            ),
+            target,
         )
         positions[component.symbol_id] = placed
         attachments.append(
@@ -2156,7 +2471,7 @@ def primary_ic_block_from_zero(
         )
         remote_net_ref = component.terminals[remote_terminal][0]
         labelled_nets.add(remote_net_ref)
-        if any(component.ref == item[0].ref for item in rail_feeds):
+        if is_rail_feed:
             skipped_primary_rails.add(primary_terminal)
             local_net_ref, local_net = component.terminals[attached_terminal]
             if _net_components(local_net, component_refs) - {component.ref, primary.ref}:
@@ -2164,9 +2479,14 @@ def primary_ic_block_from_zero(
                 # chain, another at each remote consumer; do not force their
                 # support wiring to join across the primary's pin field.
                 feed_pin = _mean_point(pin_positions(component.instance, placed, attached_terminal))
+                midpoint = (
+                    Point((primary_pin.x + feed_pin.x) / 2, primary_pin.y)
+                    if axis == "x"
+                    else Point(primary_pin.x, (primary_pin.y + feed_pin.y) / 2)
+                )
                 attachments.append(_net_symbol_attachment(
                     local_net_ref, local_net,
-                    (Point((primary_pin.x + feed_pin.x) / 2, primary_pin.y),),
+                    (midpoint,),
                     "bottom" if _is_return_net(local_net_ref, local_net) else "top",
                     clearance=_LOCAL_RAIL_STUB,
                 ))
@@ -2192,6 +2512,19 @@ def primary_ic_block_from_zero(
             min(pin.x, bounds.min_x, outer), min(pin.y, bounds.min_y) - _PIN_EXIT_STUB,
             max(pin.x, bounds.max_x, outer), max(pin.y, bounds.max_y) + _PIN_EXIT_STUB,
         )))
+    for attachment in _single_ended_net_symbol_attachments(
+        primary, primary_position, component_refs,
+    ):
+        if attachment.net_ref in labelled_nets:
+            continue
+        if attachment.outward_side not in {"left", "right"}:
+            continue
+        attachments.append(attachment)
+        labelled_nets.add(attachment.net_ref)
+        signal_lanes.append((
+            attachment.outward_side,
+            _net_symbol_drawing_envelope(attachment),
+        ))
     attachments.extend(_clear_rail_signal_lanes(primary_attachments, signal_lanes))
     preview_symbols = _NetSymbols()
     _attach_net_symbols({}, tuple(attachments), symbols=preview_symbols)
@@ -2199,8 +2532,9 @@ def primary_ic_block_from_zero(
     # Primary-only bias branches occupy real space before a neighbour is
     # placed, including when their return nets alternate supply and ground.
     for branch, signal_terminal, rail_terminal, signal_net_ref, _ in shunts:
-        signal_net = branch.terminals[signal_terminal][1]
-        if _net_components(signal_net, component_refs) & {c.ref for c in active} != {primary.ref}:
+        if branch.ref in primary_bias_roles:
+            continue
+        if authored_owner_refs[branch.ref] != primary.ref:
             continue
         pin = _component_pin_for_net(primary, primary_position, signal_net_ref)
         if pin is None:
@@ -2255,6 +2589,8 @@ def primary_ic_block_from_zero(
         for branch, signal_terminal, rail_terminal, signal_net_ref, _ in shunts:
             if signal_net_ref != net_ref:
                 continue
+            if authored_owner_refs[branch.ref] != component.ref:
+                continue
             direction_y = 1.0 if _is_return_net(*branch.terminals[rail_terminal]) else -1.0
             branch_base = _oriented_terminal_vector(
                 branch, signal_terminal, rail_terminal, axis="y", direction=direction_y,
@@ -2288,9 +2624,11 @@ def primary_ic_block_from_zero(
         labelled_nets.discard(net_ref)
 
     for component, signal_terminal, rail_terminal, signal_net_ref, _ in shunts:
-        signal_net = component.terminals[signal_terminal][1]
+        if component.ref in primary_bias_roles:
+            continue
         owner_pins: list[tuple[_Component, Position, Point]] = []
-        for owner_ref in sorted(_net_components(signal_net, component_refs)):
+        signal_net = component.terminals[signal_terminal][1]
+        for owner_ref in (authored_owner_refs[component.ref],):
             owner = placed_active.get(owner_ref)
             if owner is None:
                 continue
@@ -2309,6 +2647,7 @@ def primary_ic_block_from_zero(
             direction=direction_y,
         )
         signal_pin = _mean_point(pin_positions(component.instance, base, signal_terminal))
+        owner_clearance: tuple[PlacedBounds, str] | None = None
         if len(owner_pins) > 1:
             target = Point(
                 float(median(point.x for _, _, point in owner_pins)),
@@ -2320,6 +2659,7 @@ def primary_ic_block_from_zero(
             owner_component, owner_position, owner_pin = owner_pins[0]
             owner_bounds = placed_symbol_bounds(owner_component.instance, owner_position)
             owner_side = _side(owner_pin, owner_bounds)
+            owner_clearance = (owner_bounds, owner_side)
             if owner_side in {"left", "right"}:
                 direction_x = -1.0 if owner_side == "left" else 1.0
                 target = Point(owner_pin.x + direction_x * _BRANCH_STUB, owner_pin.y)
@@ -2329,6 +2669,29 @@ def primary_ic_block_from_zero(
                 target = Point(owner_pin.x, owner_pin.y + direction_y * _BRANCH_STUB)
                 label_origin = target
         placed = _translated(base, signal_pin, target)
+        if owner_clearance is not None:
+            owner_bounds, owner_side = owner_clearance
+            branch_bounds = placed_symbol_body_bounds(component.instance, placed)
+            if owner_side == "left" and branch_bounds.max_x > owner_bounds.min_x - _LOCAL_GAP:
+                placed = replace(
+                    placed,
+                    x=placed.x + owner_bounds.min_x - _LOCAL_GAP - branch_bounds.max_x,
+                )
+            elif owner_side == "right" and branch_bounds.min_x < owner_bounds.max_x + _LOCAL_GAP:
+                placed = replace(
+                    placed,
+                    x=placed.x + owner_bounds.max_x + _LOCAL_GAP - branch_bounds.min_x,
+                )
+            elif owner_side == "top" and branch_bounds.max_y > owner_bounds.min_y - _LOCAL_GAP:
+                placed = replace(
+                    placed,
+                    y=placed.y + owner_bounds.min_y - _LOCAL_GAP - branch_bounds.max_y,
+                )
+            elif owner_side == "bottom" and branch_bounds.min_y < owner_bounds.max_y + _LOCAL_GAP:
+                placed = replace(
+                    placed,
+                    y=placed.y + owner_bounds.max_y + _LOCAL_GAP - branch_bounds.min_y,
+                )
         positions[component.symbol_id] = placed
         rail_side = "bottom" if direction_y > 0 else "top"
         attachments.append(
@@ -2408,7 +2771,7 @@ def functional_ic_block_from_zero(
     those paths. Unsupported modules are left to their existing layout.
     """
 
-    _, _, components = _components(schematic, module)
+    instances, _, components = _components(schematic, module)
     connectors = tuple(
         component for component in components if component.component_type == "connector"
     )
@@ -2499,7 +2862,7 @@ def functional_ic_block_from_zero(
     shunt_refs: set[str] = set()
     for connector in (left, right):
         used, local_attachments = _place_shunts(
-            components, (connector,), connector_positions, positions,
+            instances, components, (connector,), connector_positions, positions,
         )
         shunt_refs.update(used)
         owners.update({item.symbol_id: connector.ref for item in components if item.ref in used})

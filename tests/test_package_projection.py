@@ -8,7 +8,6 @@ import pytest
 
 from schemer.active_projection import _active_body_symbol, project_connector_like_active_blocks
 from schemer.anchor_process import center_primary_ic
-from schemer.generic import generic_flat_layout
 from schemer.layout import LayoutPlan, ModuleLayout, Position
 from schemer.layout_metrics import (
     primary_anchor_metrics,
@@ -20,7 +19,7 @@ from schemer.primary_projection import (
     ordered_perimeter_symbol,
     project_primary_ic_symbol,
 )
-from schemer.projection_view import schematic_with_symbol_overrides, select_kicad_symbol
+from schemer.projection_view import select_kicad_symbol
 from schemer.quality import (
     top_level_block_clearance_findings,
     top_level_block_overlap_findings,
@@ -34,7 +33,7 @@ from schemer.spacing import (
     spread_parallel_rail_labels,
     spread_repeated_active_channels,
 )
-from schemer.symbol_geometry import pin_positions, placed_symbol_bounds, symbol_pin_offsets
+from schemer.symbol_geometry import placed_symbol_bounds, symbol_pin_offsets
 from schemer.toolchain import (
     DEFAULT_PCB_COMPILER,
     connectivity_digest,
@@ -42,13 +41,13 @@ from schemer.toolchain import (
 )
 
 FIXTURES = Path(__file__).parent / "fixtures"
-SAMPLE_WORKSPACE = Path(
+ABX_WORKSPACE = Path(
     os.environ.get(
         "SCHEMER_SAMPLE_WORKSPACE",
         str(Path(__file__).parent / "fixtures/sample-board"),
     )
 )
-SAMPLE_BOARD = SAMPLE_WORKSPACE / "boards" / "sample-board" / "SampleBoard.zen"
+DIGITAL_ABX = ABX_WORKSPACE / "boards" / "sample-board" / "SampleBoard.zen"
 
 
 @pytest.mark.e2e
@@ -110,7 +109,11 @@ def test_largest_generic_ic_is_moved_to_sheet_centre() -> None:
     entrypoint = FIXTURES / "generic_layouts" / "anchor_orientation" / "AnchorOrientation.zen"
     schematic = evaluate_zener(entrypoint, DEFAULT_PCB_COMPILER)
     root_ref = schematic["root_ref"]
-    positions = dict(generic_flat_layout(schematic).positions)
+    positions = {
+        "comp:R1.R": Position(0, 0, rotation=270),
+        "comp:U1.U": Position(300, 0),
+        "comp:R2.R": Position(600, 0, rotation=270),
+    }
     positions["sym:VDD#0"] = Position(
         positions["comp:U1.U"].x,
         positions["comp:U1.U"].y - 100,
@@ -143,7 +146,11 @@ def test_overlapping_top_level_functional_blocks_are_rejected() -> None:
     entrypoint = FIXTURES / "generic_layouts" / "anchor_orientation" / "AnchorOrientation.zen"
     schematic = evaluate_zener(entrypoint, DEFAULT_PCB_COMPILER)
     root_ref = schematic["root_ref"]
-    separated_positions = generic_flat_layout(schematic).positions
+    separated_positions = {
+        "comp:R1.R": Position(0, 0, rotation=270),
+        "comp:U1.U": Position(300, 0),
+        "comp:R2.R": Position(600, 0, rotation=270),
+    }
     separated = LayoutPlan(
         (ModuleLayout(root_ref, entrypoint, separated_positions),)
     ).apply_to_schematic(schematic)
@@ -478,6 +485,8 @@ def test_active_body_captions_hidden_generic_pin_names_from_semantic_type() -> N
 
     assert '(text "optical"' in generated
     assert '(text "receiver"' in generated
+    assert '(text "optical" (at 0 1.270 0)' in generated
+    assert '(text "receiver" (at 0 -1.270 0)' in generated
     assert "optical_receiver" not in generated
 
 
@@ -512,11 +521,11 @@ def test_package_caption_uses_free_centre_not_a_pin_row(side_count: int) -> None
 
 
 @pytest.mark.e2e
-def test_three_terminal_control_device_faces_owner_signal_and_control_outward() -> None:
-    if not DEFAULT_PCB_COMPILER.is_file() or not SAMPLE_BOARD.is_file():
-        pytest.skip("local sample-board compiler fixture is unavailable")
+def test_three_terminal_transistor_keeps_its_authored_symbol() -> None:
+    if not DEFAULT_PCB_COMPILER.is_file() or not DIGITAL_ABX.is_file():
+        pytest.skip("local DigitalAbx compiler fixture is unavailable")
 
-    schematic = evaluate_zener(SAMPLE_BOARD, DEFAULT_PCB_COMPILER)
+    schematic = evaluate_zener(DIGITAL_ABX, DEFAULT_PCB_COMPILER)
     module_ref = schematic["root_ref"] + ".DSP_CORE"
     source = Path(schematic["instances"][module_ref]["type_ref"]["source_path"])
     q_symbol = "comp:Q101.DMG3402L-7"
@@ -534,20 +543,11 @@ def test_three_terminal_control_device_faces_owner_signal_and_control_outward() 
         )
     )
 
-    projection = project_connector_like_active_blocks(schematic, plan, SAMPLE_BOARD)
-    projected = schematic_with_symbol_overrides(
-        schematic,
-        SAMPLE_BOARD,
-        projection.file_overrides,
-    )
-    q = projected["instances"][q_ref]
-    position = Position(0, 0)
-    bounds = placed_symbol_bounds(q, position)
-
-    assert q_ref in projection.projected_component_refs
-    assert pin_positions(q, position, "D")[0].x < bounds.center_x
-    assert pin_positions(q, position, "G")[0].x > bounds.center_x
-    assert pin_positions(q, position, "S")[0].y > bounds.center_y
+    projection = project_connector_like_active_blocks(schematic, plan, DIGITAL_ABX)
+    assert q_ref not in projection.projected_component_refs
+    q = schematic["instances"][q_ref]
+    offsets = symbol_pin_offsets(q)
+    assert len({offsets[terminal] for terminal in ("D", "G", "S")}) == 3
 
 
 def test_generic_sequential_pin_symbol_follows_physical_perimeter_order() -> None:
@@ -577,6 +577,43 @@ def test_generic_sequential_pin_symbol_follows_physical_perimeter_order() -> Non
     assert offsets["Pin_1"][1] > offsets["Pin_4"][1]
     assert all(offsets[f"Pin_{number}"][0] > 0 for number in range(5, 9))
     assert offsets["Pin_5"][1] < offsets["Pin_8"][1]
+
+
+def test_authored_pin_layout_places_auxiliary_pins_below_a_perimeter() -> None:
+    pins = "\n".join(
+        f'''(pin passive line (at 0 0 0) (length 2)
+          (name "P{number}") (number "{number}"))'''
+        for number in (*range(1, 9), 11, 12)
+    )
+    instance = {
+        "children": {f"P{number}": f"component.P{number}"
+                     for number in (*range(1, 9), 11, 12)},
+        "attributes": {
+            "__symbol_value": {"String": f'(symbol "GENERIC" {pins})'},
+            "prefix": {"String": "A"},
+            "value": {"String": "Generic module"},
+            "schematic_properties": {"Json": {
+                "pin_layout": {
+                    "perimeter": [f"P{number}" for number in range(1, 9)],
+                    "bottom": ["P11", "P12"],
+                },
+            }},
+        },
+    }
+
+    library = ordered_perimeter_symbol(instance, "GENERIC")
+
+    assert library is not None
+    projected = {
+        "attributes": {"__symbol_value": {"String": select_kicad_symbol(library, "GENERIC")}}
+    }
+    offsets = symbol_pin_offsets(projected)
+    assert offsets["P1"][0] < 0
+    assert offsets["P8"][0] > 0
+    assert offsets["P1"][1] > offsets["P4"][1]
+    assert offsets["P5"][1] < offsets["P8"][1]
+    assert offsets["P11"][1] < min(offsets[name][1] for name in ("P1", "P4", "P5", "P8"))
+    assert offsets["P12"][1] == pytest.approx(offsets["P11"][1])
 
 
 def test_ordered_perimeter_keeps_authored_functional_pin_names() -> None:

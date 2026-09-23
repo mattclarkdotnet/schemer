@@ -5,7 +5,7 @@ from __future__ import annotations
 import difflib
 import re
 from copy import deepcopy
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -41,6 +41,7 @@ class ModuleLayout:
     instance_ref: str
     source_path: Path
     positions: dict[str, Position]
+    source_net_names: dict[str, str] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -71,8 +72,39 @@ class LayoutPlan:
         updates: dict[Path, str] = {}
         for module in self.modules:
             content = module.source_path.read_text()
-            updates[module.source_path] = replace_position_block(content, module.positions)
+            updates[module.source_path] = replace_position_block(
+                content, source_position_ids(module),
+            )
         return updates
+
+
+def source_position_ids(module: ModuleLayout) -> dict[str, Position]:
+    """Translate evaluated net names back to the names accepted by a module source."""
+
+    marker = ":<root>."
+    module_path = (
+        module.instance_ref.split(marker, 1)[1]
+        if marker in module.instance_ref
+        else ""
+    )
+    result: dict[str, Position] = {}
+    for symbol_id, position in module.positions.items():
+        source_id = symbol_id
+        if symbol_id.startswith("sym:"):
+            net_symbol = symbol_id.removeprefix("sym:")
+            net_name, separator, suffix = net_symbol.rpartition("#")
+            if not separator or not suffix.isdigit():
+                raise ToolchainError(f"invalid schematic net-symbol ID: {symbol_id}")
+            source_name = module.source_net_names.get(net_name)
+            if source_name is None and module_path and net_name.startswith(module_path + "."):
+                source_name = net_name.removeprefix(module_path + ".")
+            source_id = f"sym:{source_name or net_name}#{suffix}"
+        if source_id in result:
+            raise ToolchainError(
+                f"multiple evaluated positions resolve to source symbol {source_id}"
+            )
+        result[source_id] = position
+    return result
 
 
 def resolve_module_position_ids(

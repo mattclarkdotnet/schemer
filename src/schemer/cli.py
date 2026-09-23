@@ -9,14 +9,16 @@ from collections.abc import Sequence
 from dataclasses import replace
 from pathlib import Path
 
-from schemer.active_projection import project_connector_like_active_blocks
 from schemer.block_generation import generate_functional_ic_blocks
 from schemer.generic_plan import generic_layout_plan
+from schemer.hints import parse_hints
+from schemer.kicad_api import FileSchematic
+from schemer.kicad_bridge import associate_components
+from schemer.kicad_connectivity import DEFAULT_KICAD_CLI, verify_native_connectivity
+from schemer.kicad_layout import layout_kicad_from_zener
+from schemer.kicad_schematic import KiCadSchematicDocument, KiCadSchematicError
 from schemer.layout import source_diff
 from schemer.layout_metrics import sheet_legibility_metrics
-from schemer.package_projection import collapse_multi_unit_ic_packages
-from schemer.primary_projection import project_primary_ic_symbol
-from schemer.projection_view import schematic_with_symbol_overrides
 from schemer.review import direct_child_review_targets, render_review_bundle
 from schemer.shadow import materialize_proposal_shadow
 from schemer.signal_terminations import signal_termination_sources
@@ -150,6 +152,49 @@ def build_parser() -> argparse.ArgumentParser:
     )
     _add_toolchain_arguments(layout)
 
+    inspect_kicad = subparsers.add_parser(
+        "inspect-kicad",
+        help="inspect the native objects in a persistent KiCad schematic",
+    )
+    inspect_kicad.add_argument("schematic", type=Path, help="KiCad .kicad_sch file")
+    inspect_kicad.add_argument("--json", action="store_true", help="emit machine-readable JSON")
+    inspect_kicad.add_argument(
+        "--zener",
+        type=Path,
+        help="evaluated Zener entrypoint whose components must match KiCad Path fields",
+    )
+    inspect_kicad.add_argument(
+        "--compiler",
+        type=Path,
+        default=DEFAULT_PCB_COMPILER,
+        help="path to the current pcb compiler",
+    )
+
+    layout_kicad = subparsers.add_parser(
+        "layout-kicad",
+        help="apply accepted Zener positions as native KiCad schematic layout",
+    )
+    layout_kicad.add_argument("entrypoint", type=Path, help="positioned Zener .zen entrypoint")
+    layout_kicad.add_argument("schematic", type=Path, help="persistent KiCad .kicad_sch file")
+    layout_kicad.add_argument(
+        "--output",
+        type=Path,
+        required=True,
+        help="destination .kicad_sch file",
+    )
+    layout_kicad.add_argument(
+        "--overwrite",
+        action="store_true",
+        help="replace an existing output file",
+    )
+    layout_kicad.add_argument(
+        "--compiler",
+        type=Path,
+        default=DEFAULT_PCB_COMPILER,
+        help="path to the current pcb compiler",
+    )
+    layout_kicad.add_argument("--kicad-cli", type=Path, default=DEFAULT_KICAD_CLI)
+
     return parser
 
 
@@ -210,36 +255,89 @@ def _render(args: argparse.Namespace) -> int:
     return 0
 
 
+def _inspect_kicad(args: argparse.Namespace) -> int:
+    schematic_path = args.schematic.expanduser().resolve()
+    document = KiCadSchematicDocument.from_file(schematic_path)
+    summary = document.summary()
+    summary["schematic"] = str(schematic_path)
+    if args.zener is not None:
+        zener = evaluate_zener(args.zener, args.compiler)
+        associations = associate_components(zener, document)
+        summary["zener"] = str(args.zener.expanduser().resolve())
+        summary["associated_component_count"] = len(associations)
+    if args.json:
+        print(json.dumps(summary, indent=2, sort_keys=True))
+        return 0
+
+    print("KiCad schematic inventory")
+    print(f"  schematic:   {schematic_path}")
+    print(f"  version:     {document.version}")
+    print(f"  symbols:     {len(document.symbols)}")
+    print(f"  components:  {summary['component_path_count']}")
+    print(f"  wires:       {len(document.wires)}")
+    print(f"  labels:      {len(document.labels)}")
+    print(f"  no-connects: {len(document.no_connects)}")
+    if args.zener is not None:
+        print(f"  Zener match: {summary['associated_component_count']} components")
+    return 0
+
+
+def _layout_kicad(args: argparse.Namespace) -> int:
+    schematic = evaluate_zener(args.entrypoint, args.compiler)
+    right_of = tuple(
+        (hint.blocks[0], hint.blocks[1])
+        for hint in parse_hints(args.entrypoint.read_text())
+        if hint.kind == "right-of"
+    )
+    editor = FileSchematic.from_file(args.schematic)
+    commit = editor.begin_commit()
+    try:
+        report = layout_kicad_from_zener(schematic, editor, right_of=right_of)
+    except Exception:
+        editor.drop_commit(commit)
+        raise
+    editor.push_commit(commit, "Apply Schemer native layout")
+    checked_pins = verify_native_connectivity(schematic, editor, args.kicad_cli)
+    editor.save_as(args.output, overwrite=args.overwrite)
+    print(f"wrote native KiCad schematic: {args.output.expanduser().resolve()}")
+    print(f"KiCad connectivity matches source: {checked_pins} physical pins")
+    print(
+        "layout objects: "
+        f"{report.component_count} components, "
+        f"{report.power_symbol_count} power symbols, "
+        f"{report.label_count} labels, "
+        f"{report.wire_count} wires"
+    )
+    print(
+        "suppressed service symbols: "
+        f"{report.hidden_component_count}; "
+        f"no-connects: {report.no_connect_count}; "
+        f"sheet: {report.page_size} landscape"
+    )
+    return 0
+
+
+def _validate_layout_file_overrides(overrides: dict[Path, str]) -> None:
+    if any(path.suffix == ".kicad_sym" and path.exists() for path in overrides):
+        raise ToolchainError(
+            "layout proposals may not override source-defined component symbols"
+        )
+
+
 def _layout(args: argparse.Namespace) -> int:
     if args.experimental_hints and args.proposal_dir is None:
         raise ToolchainError("--experimental-hints requires --proposal-dir for a buildable result")
     toolchain = _toolchain_for(args)
     schematic = evaluate_zener(args.entrypoint, toolchain.compiler)
     plan = generic_layout_plan(args.entrypoint, schematic, toolchain)
-    projection = collapse_multi_unit_ic_packages(schematic, plan, args.entrypoint)
-    active_projection = project_connector_like_active_blocks(
-        schematic,
-        projection.plan,
-        args.entrypoint,
-    )
-    primary_projection = project_primary_ic_symbol(
-        schematic,
-        projection.plan,
-        args.entrypoint,
-    )
-    geometry_overrides = {
-        **projection.file_overrides,
-        **active_projection.file_overrides,
-        **primary_projection.file_overrides,
-    }
-    presentation_schematic = schematic_with_symbol_overrides(
-        schematic,
-        args.entrypoint,
-        geometry_overrides,
-    )
+    # Component symbols in the evaluated Zener source are authoritative.
+    # Primary hinting may correct a copied package before this point, but the
+    # layout pass must never substitute presentation geometry at runtime.
+    termination_overrides: dict[Path, str] = {}
+    presentation_schematic = schematic
     # Complete local component groups before asking the top-level packer to
     # measure them. Output framing and bitmap size never participate here.
-    refined_plan = refine_symbol_geometry(presentation_schematic, projection.plan)
+    refined_plan = refine_symbol_geometry(presentation_schematic, plan)
     channel_plan = spread_repeated_active_channels(
         presentation_schematic,
         refined_plan,
@@ -277,7 +375,8 @@ def _layout(args: argparse.Namespace) -> int:
     # Root-copy ownership depends on final block geometry. Packing can make
     # a previously unclassified seed copy local to a regenerated child.
     final_plan = remove_redundant_root_rails(
-        final_plan.apply_to_schematic(presentation_schematic), final_plan,
+        final_plan.apply_to_schematic(presentation_schematic),
+        final_plan,
         {module_ref for module_ref, _ in block_composition.module_blocks},
     )
     block_composition = replace(
@@ -286,16 +385,17 @@ def _layout(args: argparse.Namespace) -> int:
         applied_hints=block_composition.applied_hints
         + tuple((schematic["root_ref"], hint.id) for hint in block_composition.sheet_hints),
     )
-    if args.write and projection.collapsed_component_refs:
-        raise ToolchainError(
-            "package-body presentation is shadow-only; use --proposal-dir instead of --write"
-        )
     proposed_plan = final_plan if args.proposal_dir is not None else plan
     updates = proposed_plan.proposed_sources()
     if args.proposal_dir is not None:
-        geometry_overrides.update(signal_termination_sources(
-            presentation_schematic, proposed_plan, updates,
-        ))
+        termination_overrides.update(
+            signal_termination_sources(
+                presentation_schematic,
+                proposed_plan,
+                updates,
+            )
+        )
+    _validate_layout_file_overrides(termination_overrides)
     changed = {
         path: (path.read_text(), proposed)
         for path, proposed in updates.items()
@@ -312,7 +412,7 @@ def _layout(args: argparse.Namespace) -> int:
             args.entrypoint,
             updates,
             args.proposal_dir,
-            file_overrides=geometry_overrides,
+            file_overrides=termination_overrides,
         )
         exact_proposed_schematic = evaluate_zener(proposal.entrypoint, toolchain.compiler)
         if connectivity_digest(exact_proposed_schematic) != connectivity_digest(schematic):
@@ -325,9 +425,6 @@ def _layout(args: argparse.Namespace) -> int:
         )
         print(f"wrote buildable proposal workspace under {proposal.workspace}")
         print(f"proposal entrypoint: {proposal.entrypoint}")
-        print(f"primary IC: {primary_projection.component_ref}")
-        print(f"ordered primary perimeter: {primary_projection.ordered_perimeter}")
-        print(f"functional active blocks: {len(active_projection.projected_component_refs)}")
         print(f"block-composed modules: {len(block_composition.module_blocks)}")
         for module_ref, hint_id in block_composition.applied_hints:
             print(f"layout hint applied: {module_ref}: {hint_id}")
@@ -411,7 +508,11 @@ def main(argv: Sequence[str] | None = None) -> int:
             return _render(args)
         if args.command == "layout":
             return _layout(args)
-    except ToolchainError as error:
+        if args.command == "inspect-kicad":
+            return _inspect_kicad(args)
+        if args.command == "layout-kicad":
+            return _layout_kicad(args)
+    except (KiCadSchematicError, ToolchainError) as error:
         print(f"schemer: {error}", file=sys.stderr)
         return 1
     parser.error(f"unknown command: {args.command}")

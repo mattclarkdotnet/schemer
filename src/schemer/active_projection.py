@@ -154,16 +154,17 @@ def _active_body_symbol(
     # Functional pin names already occupy the body interior.  Add a caption
     # only when those names are hidden because they merely restate numbers.
     caption_lines = _functional_caption_lines(instance) if hide_pin_names else ()
-    caption_y = ((len(caption_lines) - 1) * 1.27 / 2) if caption_lines else 0.0
+    caption_pitch = 2.54
+    caption_y = ((len(caption_lines) - 1) * caption_pitch / 2) if caption_lines else 0.0
     caption_blocks = [
-        f'''      (text "{_escape(line)}" (at 0 {caption_y - index * 1.27:.3f} 0)
+        f'''      (text "{_escape(line)}" (at 0 {caption_y - index * caption_pitch:.3f} 0)
         (effects (font (size 1.27 1.27))))'''
         for index, line in enumerate(caption_lines)
     ]
     pin_names = (
         "(pin_names (offset 1.016) (hide yes))" if hide_pin_names else "(pin_names (offset 1.016))"
     )
-    return f'''(kicad_symbol_lib (version 20220914) (generator schemer)
+    return f'''(kicad_symbol_lib (version 20251024) (generator schemer)
   (symbol "{escaped_name}" {pin_names} (in_bom yes) (on_board yes)
     (property "Reference" "{escaped_reference}" (at {-half_width:.2f} {half_height + 2.54:.2f} 0)
       (effects (font (size 1.27 1.27))))
@@ -192,46 +193,6 @@ def _active_body_symbol(
   )
 )
 '''
-
-
-def _terminal_net(
-    component_ref: str,
-    terminal: str,
-    schematic: dict[str, Any],
-) -> dict[str, Any] | None:
-    nets = schematic.get("nets")
-    if not isinstance(nets, dict):
-        return None
-    port_ref = f"{component_ref}.{terminal}"
-    return next(
-        (
-            net
-            for net in nets.values()
-            if isinstance(net, dict) and port_ref in net.get("ports", ())
-        ),
-        None,
-    )
-
-
-def _component_peers(
-    net: dict[str, Any],
-    component_refs: set[str],
-    subject_ref: str,
-) -> set[str]:
-    peers: set[str] = set()
-    for port_ref in net.get("ports", ()):
-        if not isinstance(port_ref, str):
-            continue
-        matches = [
-            component_ref
-            for component_ref in component_refs
-            if port_ref.startswith(component_ref + ".")
-        ]
-        if matches:
-            peer_ref = max(matches, key=len)
-            if peer_ref != subject_ref:
-                peers.add(peer_ref)
-    return peers
 
 
 def project_connector_like_active_blocks(
@@ -269,19 +230,6 @@ def project_connector_like_active_blocks(
 
     candidates: dict[Path, list[tuple[str, str]]] = {}
     for module in plan.modules:
-        module_prefix = module.instance_ref + "."
-        module_component_refs = {
-            instance_ref
-            for instance_ref, instance in instances.items()
-            if isinstance(instance_ref, str)
-            and instance_ref.startswith(module_prefix)
-            and isinstance(instance, dict)
-            and instance.get("kind") == "Component"
-        }
-        terminal_counts = {
-            component_ref: len(_terminal_names(component_ref, schematic))
-            for component_ref in module_component_refs
-        }
         for symbol_id in module.positions:
             if not symbol_id.startswith("comp:") or "@" in symbol_id:
                 continue
@@ -297,42 +245,6 @@ def project_connector_like_active_blocks(
             terminal_offsets = [offsets[terminal] for terminal in terminals if terminal in offsets]
             if len(terminal_offsets) != len(terminals):
                 continue
-            if len(terminals) == 3:
-                ground = [
-                    terminal
-                    for terminal in terminals
-                    if _terminal_net_kind(component_ref, terminal, schematic) == "ground"
-                ]
-                signals = [terminal for terminal in terminals if terminal not in ground]
-                owner_facing = []
-                for terminal in signals:
-                    net = _terminal_net(component_ref, terminal, schematic)
-                    peers = (
-                        _component_peers(net, module_component_refs, component_ref)
-                        if net is not None
-                        else set()
-                    )
-                    if any(terminal_counts.get(peer_ref, 0) > len(terminals) for peer_ref in peers):
-                        owner_facing.append(terminal)
-                if len(ground) == 1 and len(signals) == 2 and len(owner_facing) == 1:
-                    source_path = _symbol_source_path(component, workspace)
-                    symbol_name = _attribute_string(component, "symbol_name")
-                    if symbol_name is None:
-                        continue
-                    control_facing = next(
-                        terminal for terminal in signals if terminal not in owner_facing
-                    )
-                    generated = _active_body_symbol(
-                        symbol_name,
-                        component_ref,
-                        component,
-                        schematic,
-                        forced_left=set(owner_facing),
-                        forced_right={control_facing},
-                    )
-                    candidates.setdefault(source_path, []).append((component_ref, generated))
-                    continue
-
             if not component_type or len(terminals) < 4:
                 continue
             one_sided = (

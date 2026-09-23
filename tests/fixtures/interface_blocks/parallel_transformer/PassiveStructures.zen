@@ -1,0 +1,74 @@
+"""Tapped resistor ladders and one functional rail shunt."""
+Resistor = Module("@stdlib/generics/Resistor.zen")
+Capacitor = Module("@stdlib/generics/Capacitor.zen")
+
+VDD_A = Power("VDD_A")
+GND_A = Ground("GND_A")
+DIV_1 = Net("DIV_1")
+SENSE_A = Net("SENSE_A")
+DIV_2 = Net("DIV_2")
+SENSE_B = Net("SENSE_B")
+Component(
+    name="PROTECTION", prefix="U",
+    symbol=Symbol("GenericBlocks.kicad_sym", "TRANSFORMER"),
+    footprint=File("GenericBlock.kicad_mod"),
+    part=Part(mpn="GENERIC", manufacturer="Generic"),
+    pins={"PRI": VDD_A, "PRI_RET": GND_A, "SEC": SENSE_A, "SEC_RET": SENSE_B},
+    type="active_stage",
+)
+
+
+def divider_resistor(name, value, p1, p2, order):
+    Resistor(
+        name=name,
+        value=value,
+        package="0603",
+        P1=p1,
+        P2=p2,
+        properties={
+            "schematic_properties": {
+                "role": "divider",
+                "group": "thresholds",
+                "owner": "U1",
+                "order": order,
+            },
+        },
+    )
+
+
+divider_resistor("LADDER_1", "100k", VDD_A, DIV_1, 0)
+divider_resistor("LADDER_2", "47k", DIV_1, SENSE_A, 1)
+divider_resistor("LADDER_3", "10k", SENSE_A, DIV_2, 2)
+divider_resistor("LADDER_4", "47k", DIV_2, SENSE_B, 3)
+divider_resistor("LADDER_5", "10k", SENSE_B, GND_A, 4)
+Capacitor(
+    name="BYPASS",
+    value="100nF",
+    package="0603",
+    P1=VDD_A,
+    P2=GND_A,
+    properties={
+        "schematic_properties": {
+            "role": "bypass",
+            "group": "protection-supply",
+            "owner": "U1",
+            "pin": "PRI",
+        },
+    },
+)
+
+VDD_B = Power("VDD_B")
+GND_B = Ground("GND_B")
+FEEDBACK = Net("FEEDBACK")
+UNUSED = Net("UNUSED")
+Component(
+    name="REGULATOR", prefix="U",
+    symbol=Symbol("GenericBlocks.kicad_sym", "TRANSFORMER"),
+    footprint=File("GenericBlock.kicad_mod"),
+    part=Part(mpn="GENERIC", manufacturer="Generic"),
+    pins={"PRI": VDD_B, "PRI_RET": GND_B, "SEC": FEEDBACK, "SEC_RET": UNUSED},
+    type="active_stage",
+)
+Resistor(name="FB_TOP", value="52.3k", package="0603", P1=VDD_B, P2=FEEDBACK)
+Resistor(name="FB_BOTTOM", value="10k", package="0603", P1=FEEDBACK, P2=GND_B)
+Capacitor(name="OUTPUT", value="47uF", package="0603", P1=VDD_B, P2=GND_B)

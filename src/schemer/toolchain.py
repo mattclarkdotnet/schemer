@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Any
 
 DEFAULT_PCB_COMPILER = Path(os.environ.get(
-    "SCHEMER_COMPILER", shutil.which("pcbc") or shutil.which("pcb") or "pcb",
+    "SCHEMER_COMPILER", shutil.which("pcb") or shutil.which("pcbc") or "pcb",
 ))
 DEFAULT_EXTENSION_ROOT = Path(
     os.environ.get("SCHEMER_EXTENSION_ROOT", str(Path.home() / ".vscode/extensions"))
@@ -124,7 +124,30 @@ def evaluate_zener(entrypoint: Path, compiler: Path) -> dict[str, Any]:
     for key in ("instances", "nets", "root_ref", "symbols"):
         if key not in schematic:
             raise ToolchainError(f"pcb netlist JSON is missing {key!r}")
+    _bind_component_pin_numbers(schematic)
     return schematic
+
+
+def _bind_component_pin_numbers(schematic: dict[str, Any]) -> None:
+    """Expose compiled port-to-pad bindings to instance-local geometry readers.
+
+    Terminal aliases need not match a symbol name or number. This in-memory
+    index comes from compiler port objects, never from terminal spelling,
+    and is not persisted as source metadata.
+    """
+
+    instances = schematic["instances"]
+    for instance in instances.values():
+        if instance.get("kind") != "Component":
+            continue
+        bindings = {}
+        for terminal, port_ref in instance.get("children", {}).items():
+            pads = instances.get(port_ref, {}).get("attributes", {}).get("pads", {})
+            numbers = tuple(pad["String"] for pad in pads.get("Array", [])
+                            if isinstance(pad, dict) and isinstance(pad.get("String"), str))
+            if numbers:
+                bindings[terminal] = numbers
+        instance["_pin_numbers"] = bindings
 
 
 def viewer_evaluation(schematic: dict[str, Any]) -> dict[str, Any]:

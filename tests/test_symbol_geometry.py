@@ -7,6 +7,7 @@ from schemer.quality import require_no_detached_connected_components
 from schemer.symbol_geometry import (
     Point,
     net_symbol_pin_position,
+    pin_outward_side,
     pin_position,
     pin_positions,
     placed_symbol_body_bounds,
@@ -17,9 +18,11 @@ from schemer.symbol_geometry import (
     suppress_internal_signal_net_symbols,
     symbol_body_local_bounds,
     symbol_local_bounds,
+    symbol_pin_electrical_types,
+    symbol_pin_number_groups,
     validate_series_feed_order,
 )
-from schemer.toolchain import ToolchainError
+from schemer.toolchain import ToolchainError, _bind_component_pin_numbers
 
 _DIODE_INSTANCE = {
     "attributes": {
@@ -88,12 +91,54 @@ def test_symbol_bounds_and_pin_positions_use_viewer_stored_anchor_units() -> Non
     assert pin.y == pytest.approx(151)
 
 
+def test_quarter_turned_symbol_uses_its_rotated_top_left_anchor() -> None:
+    position = Position(100, 200, 90)
+
+    bounds = placed_symbol_bounds(_BODY_AND_PINS_INSTANCE, position)
+    pin_a = pin_position(_BODY_AND_PINS_INSTANCE, position, "A")
+    pin_b = pin_position(_BODY_AND_PINS_INSTANCE, position, "B")
+
+    assert bounds.min_x == pytest.approx(position.x)
+    assert bounds.min_y == pytest.approx(position.y)
+    assert bounds.max_x == pytest.approx(122)
+    assert bounds.max_y == pytest.approx(262)
+    assert pin_a == Point(pytest.approx(111), pytest.approx(201))
+    assert pin_b == Point(pytest.approx(111), pytest.approx(261))
+
+
 def test_duplicate_logical_pin_names_preserve_every_physical_position() -> None:
     points = pin_positions(_DUPLICATE_GROUND_INSTANCE, Position(100, 200), "GND")
 
     assert len(points) == 2
     assert points[0].y == points[1].y
     assert points[0].x < points[1].x
+
+
+def test_compiled_aliases_resolve_geometry_without_matching_symbol_names():
+    instance = {**_DUPLICATE_GROUND_INSTANCE, "kind": "Component",
+                "children": {"RETURN_A": "a", "RETURN_B": "b", "BOTH": "both"}}
+    schematic = {"instances": {
+        "part": instance,
+        "a": {"attributes": {"pads": {"Array": [{"String": "2"}]}}},
+        "b": {"attributes": {"pads": {"Array": [{"String": "8"}]}}},
+        "both": {"attributes": {"pads": {"Array": [{"String": "2"}, {"String": "8"}]}}},
+    }}
+    _bind_component_pin_numbers(schematic)
+    position = Position(100, 200)
+    assert pin_positions(instance, position, "RETURN_A") == pin_positions(instance, position, "2")
+    assert pin_positions(instance, position, "RETURN_B") == pin_positions(instance, position, "8")
+    assert pin_positions(instance, position, "BOTH") == pin_positions(instance, position, "GND")
+    assert pin_position(instance, position, "RETURN_A") == pin_position(instance, position, "2")
+    assert pin_outward_side(instance, position, "RETURN_A") == "bottom"
+    assert symbol_pin_number_groups(instance)["RETURN_A"] == ("2",)
+    assert symbol_pin_number_groups(instance)["BOTH"] == ("2", "8")
+    assert symbol_pin_electrical_types(instance)["RETURN_B"] == "power_in"
+
+
+def test_compiled_alias_takes_precedence_over_a_duplicate_display_name():
+    instance = {**_DUPLICATE_GROUND_INSTANCE, "_pin_numbers": {"GND": ("2",)}}
+    assert symbol_pin_number_groups(instance)["GND"] == ("2",)
+    assert len(pin_positions(instance, Position(0, 0), "GND")) == 1
 
 
 def test_net_symbol_anchor_is_derived_from_its_electrical_pin() -> None:

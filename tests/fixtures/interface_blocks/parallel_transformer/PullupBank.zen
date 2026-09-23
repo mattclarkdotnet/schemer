@@ -1,0 +1,54 @@
+"""Three source-authored pull-ups on one face of a generic IC."""
+
+Resistor = Module("@stdlib/generics/Resistor.zen")
+
+VDD = Power("VDD")
+GND = Ground("GND")
+SIGNAL_A = io(Net)
+SIGNAL_B = io(Net)
+SIGNAL_C = io(Net)
+
+Component(
+    name="OWNER",
+    prefix="U",
+    symbol=Symbol("GenericBlocks.kicad_sym", "PARALLEL_DRIVER"),
+    footprint=File("GenericBlock.kicad_mod"),
+    part=Part(mpn="GENERIC", manufacturer="Generic"),
+    pins={
+        "IN_A": SIGNAL_A,
+        "IN_B": SIGNAL_B,
+        "IN_C": SIGNAL_C,
+        "OUT_A": NotConnected(),
+        "OUT_B": NotConnected(),
+        "OUT_C": NotConnected(),
+        "PWR": VDD,
+        "RET": GND,
+        "NC_A": NotConnected(),
+        "NC_B": NotConnected(),
+    },
+    type="integrated_circuit",
+)
+
+
+def pullup(name, signal, pin):
+    Resistor(
+        name=name,
+        value="10k",
+        package="0603",
+        P1=VDD,
+        P2=signal,
+        properties={
+            "schematic_properties": {
+                "role": "pullup",
+                "group": "input-pullups",
+                "owner": "U1",
+                "pin": pin,
+            },
+        },
+    )
+
+
+# Equivalent pull-ups whose source roles name their owning IC pins.
+pullup("PULL_A", SIGNAL_A, "IN_A")
+pullup("PULL_B", SIGNAL_B, "IN_B")
+pullup("PULL_C", SIGNAL_C, "IN_C")

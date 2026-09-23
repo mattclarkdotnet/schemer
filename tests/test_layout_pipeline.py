@@ -14,9 +14,7 @@ def test_final_packing_does_not_leave_root_rail_copies_in_completed_children(tmp
     if not DEFAULT_PCB_COMPILER.is_file() or not source.is_file():
         pytest.skip("frozen integration corpus unavailable")
     destination = tmp_path / "proposal"
-    assert main([
-        "layout", str(source), "--experimental-hints", "--proposal-dir", str(destination),
-    ]) == 0
+    assert main(["layout", str(source), "--proposal-dir", str(destination)]) == 0
     compiled = evaluate_zener(destination / source.relative_to(workspace), DEFAULT_PCB_COMPILER)
     root = compiled["root_ref"]
     owners = top_level_root_symbol_groups(compiled)

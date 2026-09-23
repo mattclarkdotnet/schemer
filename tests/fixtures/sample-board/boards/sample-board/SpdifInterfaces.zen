@@ -59,7 +59,7 @@ COAX_CENTRE = Net(impedance=DIGITAL_NETCLASS_IMPEDANCE)
 COAX_RETURN = Net(impedance=DIGITAL_NETCLASS_IMPEDANCE)
 
 
-def decoupling(name, supply):
+def decoupling(name, supply, owner, pin):
     Capacitor(
         name=name,
         P1=supply,
@@ -74,11 +74,17 @@ def decoupling(name, supply):
             "LCSC": "C14663",
             "assembly": "JLCPCB Basic SMT; Economic PCBA",
             "submodule": "SpdifInterfaces",
+            "schematic_properties": {
+                "role": "bypass",
+                "group": "local-power",
+                "owner": owner,
+                "pin": pin,
+            },
         },
     )
 
 
-def series_100(name, source, sink):
+def series_100(name, source, sink, owner, pin, group):
     Resistor(
         name=name,
         P1=source,
@@ -91,6 +97,12 @@ def series_100(name, source, sink):
             "LCSC": "C22775",
             "assembly": "JLCPCB Basic SMT; Economic PCBA",
             "submodule": "SpdifInterfaces",
+            "schematic_properties": {
+                "role": "series-termination",
+                "group": group,
+                "owner": owner,
+                "pin": pin,
+            },
         },
     )
 
@@ -100,30 +112,66 @@ OpticalReceiver(
     VCC=PICO_3V3,
     GND=DIGITAL_GND,
     VOUT=OPTICAL_RX_RAW,
-    properties={"submodule": "SpdifInterfaces"},
+    properties={
+        "submodule": "SpdifInterfaces",
+        "schematic_properties": {
+            "function": "spdif-optical-receiver",
+        },
+    },
 )
-decoupling(REF.C_OPTICAL_RX, PICO_3V3)
-series_100(REF.R_OPTICAL_RX, OPTICAL_RX_RAW, SPDIF_RX)
+decoupling(REF.C_OPTICAL_RX, PICO_3V3, REF.U_OPTICAL_RX, "VCC")
+series_100(
+    REF.R_OPTICAL_RX,
+    OPTICAL_RX_RAW,
+    SPDIF_RX,
+    REF.U_OPTICAL_RX,
+    "VOUT",
+    "optical-rx-output-termination",
+)
 
-series_100(REF.R_OPTICAL_TX_A, SPDIF_TX_OPTICAL_A, OPTICAL_TX_A_IN)
+series_100(
+    REF.R_OPTICAL_TX_A,
+    SPDIF_TX_OPTICAL_A,
+    OPTICAL_TX_A_IN,
+    REF.U_OPTICAL_TX_A,
+    "VIN",
+    "optical-tx-a-input-termination",
+)
 OpticalTransmitter(
     name=REF.U_OPTICAL_TX_A,
     VIN=OPTICAL_TX_A_IN,
     VCC=PICO_VSYS,
     GND=DIGITAL_GND,
-    properties={"submodule": "SpdifInterfaces"},
+    properties={
+        "submodule": "SpdifInterfaces",
+        "schematic_properties": {
+            "function": "spdif-optical-transmitter",
+        },
+    },
 )
-decoupling(REF.C_OPTICAL_TX_A, PICO_VSYS)
+decoupling(REF.C_OPTICAL_TX_A, PICO_VSYS, REF.U_OPTICAL_TX_A, "VCC")
 
-series_100(REF.R_OPTICAL_TX_B, SPDIF_TX_OPTICAL_B, OPTICAL_TX_B_IN)
+series_100(
+    REF.R_OPTICAL_TX_B,
+    SPDIF_TX_OPTICAL_B,
+    OPTICAL_TX_B_IN,
+    REF.U_OPTICAL_TX_B,
+    "VIN",
+    "optical-tx-b-input-termination",
+)
 OpticalTransmitter(
     name=REF.U_OPTICAL_TX_B,
     VIN=OPTICAL_TX_B_IN,
     VCC=PICO_VSYS,
     GND=DIGITAL_GND,
-    properties={"submodule": "SpdifInterfaces"},
+    properties={
+        "submodule": "SpdifInterfaces",
+        "schematic_properties": {
+            "function": "spdif-optical-transmitter",
+        },
+    },
 )
-decoupling(REF.C_OPTICAL_TX_B, PICO_VSYS)
+decoupling(REF.C_OPTICAL_TX_B, PICO_VSYS, REF.U_OPTICAL_TX_B, "VCC")
 
 CoaxBuffer(
     name=REF.U_COAX_BUFFER,
@@ -141,9 +189,14 @@ CoaxBuffer(
     Y6=NotConnected(),
     A6=DIGITAL_GND,
     VCC=PICO_3V3,
-    properties={"submodule": "SpdifInterfaces"},
+    properties={
+        "submodule": "SpdifInterfaces",
+        "schematic_properties": {
+            "function": "spdif-coax-line-driver",
+        },
+    },
 )
-decoupling(REF.C_COAX_BUFFER, PICO_3V3)
+decoupling(REF.C_COAX_BUFFER, PICO_3V3, REF.U_COAX_BUFFER, "VCC")
 
 
 def coax_series(name, source):
@@ -188,7 +241,12 @@ Transformer(
     PRIMARY_RETURN=DIGITAL_GND,
     SECONDARY_RETURN=COAX_RETURN,
     SECONDARY_DOT=COAX_SECONDARY,
-    properties={"submodule": "SpdifInterfaces"},
+    properties={
+        "submodule": "SpdifInterfaces",
+        "schematic_properties": {
+            "function": "spdif-coax-isolation-transformer",
+        },
+    },
 )
 Capacitor(
     name=REF.C_COAX_COUPLING,
@@ -204,13 +262,60 @@ Capacitor(
         "LCSC": "C14663",
         "assembly": "JLCPCB Basic SMT; Economic PCBA",
         "submodule": "SpdifInterfaces",
+        "schematic_properties": {
+            "role": "ac-coupling",
+            "group": "coax-output-coupling",
+            "owner": REF.J_COAX_OUT,
+            "pin": "In",
+        },
     },
 )
 Rca(
     name=REF.J_COAX_OUT,
     CENTRE=COAX_CENTRE,
     SHELL=COAX_RETURN,
-    properties={"submodule": "SpdifInterfaces"},
+    properties={
+        "submodule": "SpdifInterfaces",
+        "schematic_properties": {
+            "function": "spdif-coax-output",
+        },
+    },
 )
-# schemer:hint {"version":1,"id":"coax-return","kind":"local-return","endpoints":[{"component":"J201.CAX_AV_104A_R","pin":"Pin_2"},{"component":"T201.DA101C","pin":"SA"}],"reason":"F1: Draw the secondary return as part of the local transformer-to-connector circuit, beneath its outgoing path."}
-# schemer:hint {"version":1,"id":"primary-return-exit","kind":"pin-exit","endpoints":[{"component":"T201.DA101C","pin":"AB"}],"reason":"F3: Terminate the primary return on its pin axis with a short outward stub instead of a hooked down-and-back route."}
+
+# pcb:sch C201.C x=623.2600 y=145.4000 rot=0
+# pcb:sch C202.C x=623.2600 y=724.8000 rot=0
+# pcb:sch C203.C x=623.2600 y=1304.2000 rot=0
+# pcb:sch C204.C x=1288.2000 y=445.4000 rot=0
+# pcb:sch C205.C x=1719.6400 y=622.5600 rot=270
+# pcb:sch DIGITAL_GND.0 x=625.8000 y=236.2000 rot=0
+# pcb:sch DIGITAL_GND.1 x=457.8000 y=519.4000 rot=0
+# pcb:sch DIGITAL_GND.2 x=625.8000 y=815.6000 rot=0
+# pcb:sch DIGITAL_GND.3 x=457.8000 y=1098.8000 rot=0
+# pcb:sch DIGITAL_GND.4 x=625.8000 y=1395.0000 rot=0
+# pcb:sch DIGITAL_GND.5 x=457.8000 y=1678.2000 rot=0
+# pcb:sch DIGITAL_GND.6 x=1290.7400 y=536.2000 rot=0
+# pcb:sch DIGITAL_GND.7 x=1452.9400 y=819.4000 rot=0
+# pcb:sch DIGITAL_GND.8 x=1364.0400 y=982.6000 rot=0
+# pcb:sch DIGITAL_GND.9 x=1122.7400 y=1378.2000 rot=0
+# pcb:sch DIGITAL_GND.10 x=915.7400 y=1135.0000 rot=0
+# pcb:sch J201.CAX_AV_104A_R x=1821.2400 y=619.7160 rot=0
+# pcb:sch PICO_3V3.0 x=462.8800 y=80.0000 rot=0
+# pcb:sch PICO_3V3.1 x=1127.8200 y=380.0000 rot=0
+# pcb:sch PICO_VSYS.0 x=462.8800 y=659.4000 rot=0
+# pcb:sch PICO_VSYS.1 x=462.8800 y=1238.8000 rot=0
+# pcb:sch R201.R x=172.7000 y=304.7800 rot=90
+# pcb:sch R202.R x=172.7000 y=884.1800 rot=270
+# pcb:sch R203.R x=172.7000 y=1463.5800 rot=270
+# pcb:sch R204.R x=1313.2400 y=630.1800 rot=270
+# pcb:sch R205.R x=1313.2400 y=731.7800 rot=270
+# pcb:sch R206.R x=1313.2400 y=833.3800 rot=270
+# pcb:sch R207.R x=1369.1200 y=891.8000 rot=0
+# pcb:sch SPDIF_RX.0 x=80.0000 y=311.1300 rot=270
+# pcb:sch SPDIF_TX_COAX.0 x=915.7400 y=788.9300 rot=270
+# pcb:sch SPDIF_TX_OPTICAL_A.0 x=80.0000 y=890.5300 rot=270
+# pcb:sch SPDIF_TX_OPTICAL_B.0 x=80.0000 y=1469.9300 rot=270
+# pcb:sch T201.DA101C x=1465.6400 y=637.8000 rot=0
+# pcb:sch U201.PLR237_T10BK x=343.5000 y=185.4000 rot=0
+# pcb:sch U202.PLT237_T10WH x=343.5000 y=764.8000 rot=0
+# pcb:sch U203.PLT237_T10WH x=343.5000 y=1344.2000 rot=0
+# pcb:sch U204.74HC14D_653 x=1008.4400 y=485.4000 rot=0

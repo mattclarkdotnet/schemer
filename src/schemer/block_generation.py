@@ -6,6 +6,7 @@ from dataclasses import dataclass, replace
 from typing import Any
 
 from schemer.blocks import BlockPlan
+from schemer.general_blocks import general_local_blocks
 from schemer.heuristic_block import (
     functional_ic_block_from_zero,
     multi_active_interface_block_from_zero,
@@ -13,6 +14,7 @@ from schemer.heuristic_block import (
 )
 from schemer.hints import Hint, HintSet
 from schemer.layout import LayoutPlan, ModuleLayout
+from schemer.roles import module_functions
 from schemer.toolchain import ToolchainError
 
 
@@ -77,19 +79,21 @@ def generate_functional_ic_blocks(
 ) -> BlockCompositionResult:
     """Rebuild eligible connector/IC modules from topology and pin geometry.
 
-    Existing positions do not participate. Unsupported modules pass through
-    unchanged. Selection never uses a board name, reference designator, source
+    Existing positions do not participate. Modules outside the specialised
+    motifs use general local blocks. Selection never uses a board name, reference designator, source
     path, or part number.
     """
 
     if padding < 0:
         raise ToolchainError("block composition padding must be non-negative")
 
+    module_functions(schematic.get("instances", {}))
+
     modules: list[ModuleLayout] = []
     generated: list[tuple[str, BlockPlan]] = []
     applied: list[tuple[str, str]] = []
     sheet_hints: tuple[Hint, ...] = ()
-    for module in plan.modules:
+    for module in sorted(plan.modules, key=lambda item: item.instance_ref.count("."), reverse=True):
         hints = HintSet.from_source(module.source_path, allow_experimental=allow_experimental_hints)
         if module.instance_ref == schematic.get("root_ref"):
             sheet_hints = tuple(hint for hint in hints.hints if hint.kind == "right-of")
@@ -102,6 +106,15 @@ def generate_functional_ic_blocks(
         if block is None:
             block = primary_ic_block_from_zero(schematic, module, padding=padding)
         if block is None:
+            block = general_local_blocks(
+                schematic, module, padding=padding,
+                excluded_modules=tuple(other.instance_ref for other in plan.modules
+                                       if other.instance_ref.startswith(module.instance_ref + ".")),
+                child_blocks={ref: child for ref, child in generated
+                              if f"comp:{ref.removeprefix(module.instance_ref + '.')}"
+                              in module.positions},
+            )
+        if block is None:
             hints.require_all_applied()
             modules.append(module)
             continue
@@ -109,6 +122,8 @@ def generate_functional_ic_blocks(
         applied.extend((module.instance_ref, hint.id) for hint in hints.hints)
         modules.append(replace(module, positions=block.positions()))
         generated.append((module.instance_ref, block))
+    by_ref = {module.instance_ref: module for module in modules}
     return BlockCompositionResult(
-        replace(plan, modules=tuple(modules)), tuple(generated), tuple(applied), sheet_hints
+        replace(plan, modules=tuple(by_ref[module.instance_ref] for module in plan.modules)),
+        tuple(generated), tuple(applied), sheet_hints,
     )

@@ -12,7 +12,7 @@ from schemer.toolchain import ToolchainError
 PREFIX = "# schemer:hint "
 KINDS = {"local-return": 2, "pin-exit": 1, "right-of": 2}
 # Type approval does not make a relationship an automatic placement default.
-APPROVED_KINDS = frozenset({"local-return", "pin-exit"})
+APPROVED_KINDS = frozenset({"local-return", "pin-exit", "right-of"})
 
 
 @dataclass(frozen=True, order=True)

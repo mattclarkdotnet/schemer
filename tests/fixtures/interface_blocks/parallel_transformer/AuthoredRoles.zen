@@ -1,0 +1,78 @@
+"""A source-authored series path with two functional shunts."""
+
+Resistor = Module("@stdlib/generics/Resistor.zen")
+Capacitor = Module("@stdlib/generics/Capacitor.zen")
+
+INPUT = io(Net)
+OUTPUT = io(Net)
+RETURN_A = io(Ground)
+RETURN_B = io(Ground)
+FILTER_1 = Net("FILTER_1")
+FILTER_2 = Net("FILTER_2")
+
+# First element in the source-authored signal path.
+Resistor(
+    name="SERIES_1", value="4.7k", package="0603", P1=INPUT, P2=FILTER_1,
+    properties={
+        "schematic_properties": {
+            "role": "series",
+            "group": "signal-path",
+            "order": 0,
+        },
+    },
+)
+# Shunt at the first filter node.
+Capacitor(
+    name="SHUNT_1", value="4.7nF", package="0603", P1=FILTER_1, P2=RETURN_A,
+    properties={
+        "schematic_properties": {
+            "role": "shunt",
+            "group": "signal-path",
+            "at": "FILTER_1",
+        },
+    },
+)
+# Second element in the source-authored signal path.
+Resistor(
+    name="SERIES_2", value="4.7k", package="0603", P1=FILTER_1, P2=FILTER_2,
+    properties={
+        "schematic_properties": {
+            "role": "series",
+            "group": "signal-path",
+            "order": 1,
+        },
+    },
+)
+# Shunt at the second filter node.
+Capacitor(
+    name="SHUNT_2", value="4.7nF", package="0603", P1=FILTER_2, P2=RETURN_A,
+    properties={
+        "schematic_properties": {
+            "role": "shunt",
+            "group": "signal-path",
+            "at": "FILTER_2",
+        },
+    },
+)
+# Final series coupling element.
+Capacitor(
+    name="SERIES_3", value="1uF", package="0603", P1=FILTER_2, P2=OUTPUT,
+    properties={
+        "schematic_properties": {
+            "role": "series",
+            "group": "signal-path",
+            "order": 2,
+        },
+    },
+)
+# Output bias to its distinct return domain.
+Resistor(
+    name="BIAS", value="100k", package="0603", P1=OUTPUT, P2=RETURN_B,
+    properties={
+        "schematic_properties": {
+            "role": "shunt",
+            "group": "signal-path",
+            "at": "OUTPUT",
+        },
+    },
+)

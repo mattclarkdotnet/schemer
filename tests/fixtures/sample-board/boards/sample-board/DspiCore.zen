@@ -55,7 +55,15 @@ PowerSchottky(
     name=REF.D_PICO_VSYS,
     ANODE=V5_ISO,
     CATHODE=PICO_VSYS,
-    properties={"submodule": "DspiCore"},
+    properties={
+        "submodule": "DspiCore",
+        "schematic_properties": {
+            "role": "power-feed",
+            "group": "pico-power",
+            "owner": REF.A_DSPI,
+            "pin": "VSYS",
+        },
+    },
 )
 
 Resistor(
@@ -70,6 +78,12 @@ Resistor(
         "LCSC": "C25804",
         "assembly": "JLCPCB Basic SMT; Economic PCBA",
         "submodule": "DspiCore",
+        "schematic_properties": {
+            "role": "pullup",
+            "group": "run-control",
+            "owner": REF.A_DSPI,
+            "pin": "RUN",
+        },
     },
 )
 
@@ -85,6 +99,12 @@ Resistor(
         "LCSC": "C25803",
         "assembly": "JLCPCB Basic SMT; Economic PCBA",
         "submodule": "DspiCore",
+        "schematic_properties": {
+            "role": "pulldown",
+            "group": "reset-request-bias",
+            "owner": REF.Q_RUN_ASSERT,
+            "pin": "G",
+        },
     },
 )
 
@@ -93,11 +113,16 @@ Nmos(
     D=DSP_RUN_N,
     G=DSP_RESET_REQUEST,
     S=DIGITAL_GND,
-    properties={"submodule": "DspiCore"},
+    properties={
+        "submodule": "DspiCore",
+        "schematic_properties": {
+            "function": "pico-run-reset-switch",
+        },
+    },
 )
 
 
-def i2s_series(name, source, output):
+def i2s_series(name, source, output, pin):
     Resistor(
         name=name,
         P1=source,
@@ -110,13 +135,19 @@ def i2s_series(name, source, output):
             "LCSC": "C22775",
             "assembly": "JLCPCB Basic SMT; Economic PCBA",
             "submodule": "DspiCore",
+            "schematic_properties": {
+                "role": "series-termination",
+                "group": "i2s-source-termination",
+                "owner": REF.A_DSPI,
+                "pin": pin,
+            },
         },
     )
 
 
-i2s_series(REF.R_I2S_BCK_SERIES, DSP_I2S_BCK_RAW, DSP_I2S_BCK)
-i2s_series(REF.R_I2S_LRCK_SERIES, DSP_I2S_LRCK_RAW, DSP_I2S_LRCK)
-i2s_series(REF.R_I2S_DOUT_SERIES, DSP_I2S_DOUT_RAW, DSP_I2S_DOUT)
+i2s_series(REF.R_I2S_BCK_SERIES, DSP_I2S_BCK_RAW, DSP_I2S_BCK, "GPIO8")
+i2s_series(REF.R_I2S_LRCK_SERIES, DSP_I2S_LRCK_RAW, DSP_I2S_LRCK, "GPIO7")
+i2s_series(REF.R_I2S_DOUT_SERIES, DSP_I2S_DOUT_RAW, DSP_I2S_DOUT, "GPIO6")
 
 Pico2(
     name=REF.A_DSPI,
@@ -142,5 +173,38 @@ Pico2(
     V3V3=PICO_3V3,
     VSYS=PICO_VSYS,
     GND=DIGITAL_GND,
-    properties={"submodule": "DspiCore"},
+    properties={
+        "submodule": "DspiCore",
+        "schematic_properties": {
+            "function": "digital-signal-controller",
+        },
+    },
 )
+
+# pcb:sch A101.PICO_2 x=463.5000 y=401.6000 rot=0
+# pcb:sch D101.POWER_SCHOTTKY x=628.6000 y=145.4000 rot=270
+# pcb:sch DIGITAL_GND.0 x=220.0000 y=503.4200 rot=0
+# pcb:sch DIGITAL_GND.1 x=679.4000 y=1218.2000 rot=0
+# pcb:sch DIGITAL_GND.2 x=89.2000 y=594.0000 rot=0
+# pcb:sch DIGITAL_GND.3 x=988.0000 y=1051.2000 rot=0
+# pcb:sch DSP_I2S_BCK.0 x=40.0000 y=832.1300 rot=270
+# pcb:sch DSP_I2S_DOUT.0 x=140.0000 y=781.3300 rot=270
+# pcb:sch DSP_I2S_LRCK.0 x=90.0000 y=806.7300 rot=270
+# pcb:sch DSP_RESET_REQUEST.0 x=151.4300 y=545.1000 rot=0
+# pcb:sch DSP_STATUS.0 x=1000.7000 y=959.1300 rot=90
+# pcb:sch PICO_3V3.0 x=735.2800 y=296.2000 rot=0
+# pcb:sch PICO_VSYS.0 x=633.6800 y=246.2000 rot=0
+# pcb:sch PICO_VSYS.1 x=365.8800 y=397.8000 rot=0
+# pcb:sch Q101.DMG3402L-7 x=181.9000 y=477.8000 rot=90
+# pcb:sch R101.R x=365.8800 y=503.2000 rot=0
+# pcb:sch R102.R x=225.0800 y=412.6200 rot=0
+# pcb:sch R103.R x=132.7000 y=825.7800 rot=90
+# pcb:sch R104.R x=182.7000 y=800.3800 rot=90
+# pcb:sch R105.R x=232.7000 y=774.9800 rot=90
+# pcb:sch SCL.0 x=370.8000 y=959.1300 rot=270
+# pcb:sch SDA.0 x=370.8000 y=933.7300 rot=270
+# pcb:sch SPDIF_RX.0 x=370.8000 y=730.5300 rot=270
+# pcb:sch SPDIF_TX_COAX.0 x=1000.7000 y=730.5300 rot=90
+# pcb:sch SPDIF_TX_OPTICAL_A.0 x=1000.7000 y=755.9300 rot=90
+# pcb:sch SPDIF_TX_OPTICAL_B.0 x=1000.7000 y=705.1300 rot=90
+# pcb:sch V5_ISO.0 x=633.6800 y=40.0000 rot=0

@@ -19,11 +19,17 @@ implementation process is in [placement-process.md](placement-process.md).
    once. Mechanical and service-only objects may be omitted from an
    explanatory electrical view without changing the underlying design.
 3. Make unused pins explicit rather than leaving apparent dangling wires.
+   Trim unused wire tails after joining branches; a junction must not leave
+   an unexplained open-ended spur.
 4. Keep crossing wires distinguishable from connected junctions. Prefer
    ordinary T junctions; avoid ambiguous four-way crossings, coincident tees
    and out-and-back hooks.
 5. A wire may not cross a component body or unrelated annotation. Text,
    component bodies and unrelated local groups must not overlap.
+6. A local circuit must be understandable without knowing its intended
+   function beforehand. Distinct components, rail symbols and their named
+   nodes must not read as a composite or malformed symbol merely because
+   their individual graphics do not overlap.
 
 ## 2. Explain functional structure
 
@@ -51,9 +57,25 @@ implementation process is in [placement-process.md](placement-process.md).
 
 1. Series elements lie along the signal or supply path. Shunts, bias networks
    and decoupling branch from the node they serve.
+   By default, a single two-terminal component attached to a device pin
+   follows that pin's axis, with a straight connection. This is a geometric
+   default, not a role-specific hint. Explicit layout intent or a genuine
+   collision may require a different arrangement. Apply it in every pin
+   direction, not only to particular component types or functions. Try
+   clearance along the pin axis before introducing a bend.
+   This preference weakens when several passives serve the same pin. Place
+   an authored functional network together: its members' relationship and
+   clear shared wiring take precedence over aligning either member with
+   the device pin. Do not stretch a network apart to satisfy a single-part
+   placement default.
 2. Supply symbols point north and ground symbols point south. This convention
    takes precedence over keeping a wire perfectly straight when the
    connection needs no more than one right-angle turn.
+   It constrains the rail symbol, not the attached component's orientation.
+   A horizontal component can terminate in a south-facing ground symbol.
+   On a continuing wire, separate a rail marker clearly from an adjacent
+   component and its caption. Use a short branch when an inline marker
+   obscures the component or which side of it the named node belongs to.
 3. A different rail-symbol orientation is permitted only when conventional
    orientation would require more than one right-angle turn, or when an
    explicit exception has been approved. Neither dense packing nor text
@@ -61,6 +83,9 @@ implementation process is in [placement-process.md](placement-process.md).
 4. Decoupling is local to the actual supply pin or supply region it serves.
    Feedback and bias networks remain compact and legible around their active
    device.
+   Rail-symbol orientation does not prescribe capacitor orientation. A bypass
+   on a north-facing supply pin can branch horizontally, with the supply
+   symbol directly above the pin and a south-facing return at the other end.
 5. Differential pairs and bus members stay adjacent, consistently ordered
    and visibly related.
 6. Comparable support components on successive pins should align neatly.
@@ -84,28 +109,51 @@ implementation process is in [placement-process.md](placement-process.md).
 4. A pin terminated by a net assignment should have a visible outward wire
    stub before its label. A name placed immediately against the pin is less
    clear about what is a pin name and what is a net connection.
-5. Repeated same-net rail pins on one component face should share a local
-   termination. The same rail on another face may terminate separately:
-   do not loop a wire around the device merely to join the two drawings.
+5. Repeated same-net rail pins serving the same function on one component
+   face should share a local termination. Keep supply/return connections and
+   their bypasses separate from signal pins tied high or low, even on the
+   same net, including hard pull-ups and pull-downs with no intervening
+   component. Preserve their visual separation as well as their separate
+   wiresets; the space that makes these functions distinct is useful, not
+   wasted wire. Do not compact one branch into the other's supply region or
+   run a supply trunk through signal rows just to combine them. The same rail
+   on another face may terminate separately: do not loop a wire around the
+   device merely to join the two drawings.
 6. Shared return wiring should be visibly shared when the branches form a
    local bank. Keep unrelated owners' return groups local even when they
    ultimately have the same electrical net.
    End the return bank before the next unrelated signal bank; its symbol is
    an obstacle with real dimensions, not an invisible connection point.
+   Include the entire glyph and caption: a ground-symbol tip touching a
+   signal wire implies a connection even without a junction dot.
+   Merge nearby same-net terminations only when their shared route is clear;
+   proximity alone does not justify crossing another terminal or component.
 7. Respect the outward exit direction of every pin. Derive branch junctions
    and shared trunks from those exits before attaching other symbols.
    Align electrical connection points, not stored drawing anchors.
+   Keep wires and junctions clear of every component body; approach only
+   through its pins with a visible outward segment. Recheck this after
+   moving a shared trunk or compacting its attached components.
 8. An attached shunt must leave room for the approach to its pin. Do not put
    a vertical pin directly on a horizontal trunk if its required approach
    forces the router into a double bend.
 9. Minimize unnecessary bends and loops, subject to electrical clarity,
    conventional rail orientation and genuine obstacles. A bend with one of
    those purposes is not an avoidable dogleg.
+   First consider whether moving or rotating the attached component removes
+   the crossing or bend. Routing around a poor placement is not a solution.
 10. Directly join independently laid-out major device or connector blocks
     only when at least three distinct one-to-one connections can run straight
     between them. Otherwise use named interfaces with visible local stubs.
     This does not sever useful connections within a device's local support
     circuit, such as a bias or switching branch.
+11. An external interface represented by named stubs is not an IC
+    alignment anchor. Complete the functional device blocks first, then pack
+    these interfaces together along the bottom, wrapping within the sheet
+    ratio. Include optical interfaces and their owned support circuitry;
+    classification comes from their function, not reference prefixes.
+    Do not widen or distort the functional layout merely to preserve an
+    interface's seed position.
 
 ## 5. Complete local layout before packing groups
 
@@ -126,16 +174,37 @@ and its completed branches and terminations.
 4. Preserve electrical rows and useful direct connections while allocating
    space. Text must not silently move a component perpendicular to its wire
    lane or create new junctions.
+   Labels are the easiest items to move. Try translating or rotating them
+   to fit a coherent component-and-wire layout before changing that layout.
+   Keep electrical attachment and visual ownership unambiguous; a caption
+   belongs beside its own symbol, not in an unrelated empty row.
    When a rail termination competes with a neighbouring signal branch, let
-   the termination move outward instead of bending the signal wire. Preserve
+   the termination move outward if text placement alone cannot resolve the
+   conflict, instead of bending the signal wire. Preserve
    its local ownership and account for the whole branch, including its label.
+   Choose semantic grouping, endpoint orientation, bend count, alignment and
+   clearance in that order. Use connection distance only to choose between
+   candidates that are otherwise equivalent. A slightly longer straight or
+   consistently vertical branch is preferable to a shorter dogleg.
 5. Use consistent spacing increments and reserve enough room around dense
    pin fields, branch junctions and domain boundaries.
 6. Related items should be closer to one another than to unrelated groups.
    Compactness matters only after local topology and annotations are clear.
+   Shorten clearly excessive wire only when the alternative preserves that
+   clarity, functional separation, pin exits, alignment and bend count.
+   A modest straight span is preferable to a shorter route with doglegs;
+   length alone is not a defect. An unobstructed escape beyond neighbouring
+   annotations can justify a longer stub. Move text where it gives a real
+   improvement, but do not force every termination to the minimum length.
+   A simple termination should not inherit unrelated branch clearance merely
+   because it shares the same net. This applies to all connection types.
+   Apply this throughout a chain and to repeated branches; arbitrary fixed
+   gaps must not leave one local group stretched out relative to the rest.
 7. Keep layout scale independent. Choose the output framing after the
    circuit is laid out; do not size a device as an arbitrary fraction of
-   a page.
+   a page. Pack completed groups within a standard aspect ratio, wrapping
+   groups and connector banks as needed. Use the same ratio for whole-sheet
+   previews; do not turn the drawing into a wide panorama by cropping it.
 
 ## 6. Make annotations serve the reader
 
@@ -155,6 +224,14 @@ and its completed branches and terminations.
 6. Text and basic component bodies must be comfortably readable relative
    to the major symbols at the same scale. Increasing bitmap resolution
    alone cannot repair the wrong relative sizes.
+7. Keep each reference/value pair close to its own component. In a stacked
+   bank, captions must identify their corresponding rows, not form detached
+   columns above the bank. Reposition captions after moving or rotating parts.
+8. Keep complete text bounds clear of final wires, pin strokes and numbers,
+   junctions and symbol graphics. A clear text anchor is not enough. Put a
+   label beside a continuing wire or on a clear stub, never across the wire.
+   Move text to resolve an annotation collision rather than bending an
+   otherwise sensible connection.
 
 ## 7. Validate the drawing, not just its coordinates
 
@@ -179,3 +256,41 @@ and its completed branches and terminations.
 7. Check that a clearance correction preserves useful local wires. Moving a
    component until an overlap disappears is not sufficient if its connection
    silently becomes a pair of labels.
+
+### Review pass
+
+A traceable circuit is not necessarily a clear layout. Report avoidable
+crossings and wraparound routes even when every junction is unambiguous.
+Consider whether component placement or local named terminations would
+simplify the wiring while preserving useful local topology, following §4.
+Assess these structural issues before minor caption polish. Passing the hard
+electrical-clarity and collision gates alone is not overall layout acceptance.
+
+Inspect the whole sheet and readable details of every local group. Check:
+
+1. Wire crossings, component-body crossings, symbol-to-wire contacts and
+   dangling tails. Distinguish the actual netlist from what the drawing
+   appears to connect.
+   Read each local circuit as an unfamiliar reader: can its components,
+   polarity and named nodes be distinguished without reconstructing intent?
+   Geometrically separate symbols can still form an unintelligible drawing.
+2. Pin-axis alignment, avoidable doglegs and loops. Look at component
+   placement and orientation before recommending a routing change.
+3. Complete rail-symbol and text clearance, especially where a return bank
+   ends beside another signal bank or a rail trunk passes signal labels.
+4. Caption association as well as collision: references, values and device
+   titles must clearly belong to their bodies after any layout change.
+5. Clearly excessive stub and connection lengths once topology and clearance
+   are sound. Identify a feasible shorter arrangement before reporting one:
+   it must preserve functional separation, pin exits, alignment and bend
+   count, including the complete neighbouring glyphs and text. An apparently
+   empty pin row alone does not establish a clear escape. Do not flag modest
+   spans whose shortening would add doglegs or crowd distinct supply and
+   bias branches. Apply this to all connections, not just particular nets.
+
+Report concrete locations and qualitative corrections, distinguishing defects
+from style suggestions. Judge orientation, caption placement and rail
+clearance separately: a correct orientation is not invalidated by a nearby
+text defect. Passing connectivity tests do not establish visual acceptance.
+After fixing a collision, reread the whole local circuit before marking it
+resolved; moving text out of a wire does not prove the arrangement is clear.

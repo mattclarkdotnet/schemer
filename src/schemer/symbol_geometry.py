@@ -9,6 +9,7 @@ from statistics import median
 from typing import TYPE_CHECKING, Any
 
 from schemer.layout import Position
+from schemer.signal_termination_symbol import SYMBOL as SIGNAL_TERMINATION_SYMBOL
 from schemer.toolchain import ToolchainError
 
 if TYPE_CHECKING:
@@ -154,6 +155,22 @@ def _balanced_blocks(source: str, head: str) -> list[str]:
     return blocks
 
 
+def _pin_identifiers(instance: dict[str, Any], block: str) -> tuple[str, ...]:
+    """Resolve authored terminal aliases through physical pad identity."""
+
+    number = re.search(r'\(number\s+"([^"]*)"', block)
+    physical = number.group(1) if number else ""
+    aliases = instance.get("_pin_numbers", {})
+    identifiers = []
+    for field in ("name", "number"):
+        match = re.search(rf'\({field}\s+"([^"]*)"', block)
+        if match and (name := match.group(1)):
+            if name not in aliases or physical in aliases[name]:
+                identifiers.append(name)
+    identifiers.extend(alias for alias, pads in aliases.items() if physical in pads)
+    return tuple(dict.fromkeys(identifiers))
+
+
 def symbol_pin_offsets(instance: dict[str, Any]) -> dict[str, tuple[float, float]]:
     """Read named and numbered pin offsets from an evaluated KiCad symbol."""
 
@@ -169,10 +186,8 @@ def symbol_pin_offsets(instance: dict[str, Any]) -> dict[str, tuple[float, float
         if at_match is None:
             continue
         offset = (float(at_match.group(1)), float(at_match.group(2)))
-        for field in ("name", "number"):
-            field_match = re.search(rf'\({field}\s+"([^"]*)"', block)
-            if field_match is not None and field_match.group(1):
-                offsets[field_match.group(1)] = offset
+        for name in _pin_identifiers(instance, block):
+            offsets[name] = offset
     return offsets
 
 
@@ -183,11 +198,7 @@ def pin_outward_side(instance: dict[str, Any], position: Position, terminal: str
     symbol = _attribute_string(instance, "__symbol_value") or ""
     sides = set()
     for block in _balanced_blocks(symbol, "pin"):
-        names = [
-            match.group(1)
-            for field in ("name", "number")
-            if (match := re.search(rf'\({field}\s+"([^"]*)"', block)) is not None
-        ]
+        names = _pin_identifiers(instance, block)
         if terminal not in names:
             continue
         at = re.search(rf"\(at\s+{_NUMBER}\s+{_NUMBER}\s+({_NUMBER})\)", block)
@@ -227,10 +238,8 @@ def symbol_pin_offset_groups(
         if at_match is None:
             continue
         offset = (float(at_match.group(1)), float(at_match.group(2)))
-        for field in ("name", "number"):
-            field_match = re.search(rf'\({field}\s+"([^"]*)"', block)
-            if field_match is not None and field_match.group(1):
-                grouped.setdefault(field_match.group(1), []).append(offset)
+        for name in _pin_identifiers(instance, block):
+            grouped.setdefault(name, []).append(offset)
     return {name: tuple(offsets) for name, offsets in grouped.items()}
 
 
@@ -246,10 +255,23 @@ def symbol_pin_electrical_types(instance: dict[str, Any]) -> dict[str, str]:
         if type_match is None:
             continue
         electrical_type = type_match.group(1)
-        for field in ("name", "number"):
-            field_match = re.search(rf'\({field}\s+"([^"]*)"', block)
-            if field_match is not None and field_match.group(1):
-                result[field_match.group(1)] = electrical_type
+        for name in _pin_identifiers(instance, block):
+            result[name] = electrical_type
+    return result
+
+
+def symbol_pin_number_groups(instance: dict[str, Any]) -> dict[str, tuple[str, ...]]:
+    """Retain every physical pin belonging to a logical terminal."""
+
+    symbol = _attribute_string(instance, "__symbol_value")
+    result: dict[str, tuple[str, ...]] = {}
+    for block in _balanced_blocks(symbol or "", "pin"):
+        number = re.search(r'\(number\s+"([^"]*)"', block)
+        if number and number.group(1):
+            for name in _pin_identifiers(instance, block):
+                previous = result.get(name, ())
+                if number.group(1) not in previous:
+                    result[name] = (*previous, number.group(1))
     return result
 
 
@@ -270,6 +292,7 @@ def symbol_pin_numbers(instance: dict[str, Any]) -> dict[str, str]:
             and number_match.group(1)
         ):
             result[name_match.group(1)] = number_match.group(1)
+    result.update({name: pads[-1] for name, pads in instance.get("_pin_numbers", {}).items()})
     return result
 
 
@@ -362,14 +385,45 @@ def rotated_offset(offset: tuple[float, float], rotation: float) -> tuple[float,
     raise ToolchainError(f"unsupported orthogonal rotation: {rotation}")
 
 
+def _placed_symbol_origin(
+    instance: dict[str, Any],
+    position: Position,
+) -> tuple[float, float]:
+    """Recover the KiCad origin from the viewer's rotated top-left anchor.
+
+    Persisted x/y coordinates identify the top-left of the symbol *after*
+    rotation.  Using the unrotated bounds happens to work at 0 degrees, but
+    shifts every non-square symbol at 90/270 degrees.  That mismatch makes
+    otherwise collinear wire endpoints appear one symbol half-span apart.
+    """
+
+    bounds = symbol_local_bounds(instance)
+    corners = (
+        (bounds.min_x, bounds.min_y),
+        (bounds.min_x, bounds.max_y),
+        (bounds.max_x, bounds.min_y),
+        (bounds.max_x, bounds.max_y),
+    )
+    transformed = [rotated_offset(corner, position.rotation) for corner in corners]
+    return (
+        position.x - min(point[0] for point in transformed) * _VIEWER_UNITS_PER_MM,
+        position.y - min(point[1] for point in transformed) * _VIEWER_UNITS_PER_MM,
+    )
+
+
+def placed_symbol_origin(instance: dict[str, Any], position: Position) -> tuple[float, float]:
+    """Return the placed KiCad origin in viewer units for a stored viewer anchor."""
+
+    return _placed_symbol_origin(instance, position)
+
+
 def placed_symbol_bounds(instance: dict[str, Any], position: Position) -> PlacedBounds:
     """Resolve one stored symbol anchor into its visible geometry bounds."""
 
     if position.mirror is not None:
         raise ToolchainError("placed bounds do not yet support mirrored symbols")
     bounds = symbol_local_bounds(instance)
-    origin_x = position.x - bounds.min_x * _VIEWER_UNITS_PER_MM
-    origin_y = position.y + bounds.max_y * _VIEWER_UNITS_PER_MM
+    origin_x, origin_y = _placed_symbol_origin(instance, position)
     corners = (
         (bounds.min_x, bounds.min_y),
         (bounds.min_x, bounds.max_y),
@@ -396,10 +450,8 @@ def placed_symbol_body_bounds(instance: dict[str, Any], position: Position) -> P
 
     if position.mirror is not None:
         raise ToolchainError("placed bounds do not yet support mirrored symbols")
-    anchor_bounds = symbol_local_bounds(instance)
     body_bounds = symbol_body_local_bounds(instance)
-    origin_x = position.x - anchor_bounds.min_x * _VIEWER_UNITS_PER_MM
-    origin_y = position.y + anchor_bounds.max_y * _VIEWER_UNITS_PER_MM
+    origin_x, origin_y = _placed_symbol_origin(instance, position)
     corners = (
         (body_bounds.min_x, body_bounds.min_y),
         (body_bounds.min_x, body_bounds.max_y),
@@ -429,9 +481,7 @@ def pin_position(instance: dict[str, Any], position: Position, pin_name: str) ->
     offsets = symbol_pin_offsets(instance)
     if pin_name not in offsets:
         raise ToolchainError(f"evaluated symbol has no pin geometry for {pin_name!r}")
-    bounds = symbol_local_bounds(instance)
-    origin_x = position.x - bounds.min_x * _VIEWER_UNITS_PER_MM
-    origin_y = position.y + bounds.max_y * _VIEWER_UNITS_PER_MM
+    origin_x, origin_y = _placed_symbol_origin(instance, position)
     offset_x, offset_y = rotated_offset(offsets[pin_name], position.rotation)
     return Point(
         origin_x + offset_x * _VIEWER_UNITS_PER_MM,
@@ -448,9 +498,7 @@ def pin_positions(instance: dict[str, Any], position: Position, pin_name: str) -
     offsets = grouped.get(pin_name)
     if not offsets:
         raise ToolchainError(f"evaluated symbol has no pin geometry for {pin_name!r}")
-    bounds = symbol_local_bounds(instance)
-    origin_x = position.x - bounds.min_x * _VIEWER_UNITS_PER_MM
-    origin_y = position.y + bounds.max_y * _VIEWER_UNITS_PER_MM
+    origin_x, origin_y = _placed_symbol_origin(instance, position)
     result: list[Point] = []
     for offset in offsets:
         offset_x, offset_y = rotated_offset(offset, position.rotation)
@@ -485,6 +533,25 @@ def net_symbol_pin_position(net: dict[str, Any], position: Position) -> Point:
         raise ToolchainError("evaluated net symbol must have exactly one electrical pin")
     x, y = next(iter(points))
     return Point(x, y)
+
+
+def _net_with_default_signal_symbol(net: dict[str, Any]) -> dict[str, Any]:
+    properties = net.get("properties")
+    if isinstance(properties, dict) and "__symbol_value" in properties:
+        return net
+    return {
+        **net,
+        "properties": {
+            **(properties if isinstance(properties, dict) else {}),
+            "__symbol_value": SIGNAL_TERMINATION_SYMBOL,
+        },
+    }
+
+
+def net_with_default_signal_symbol(net: dict[str, Any]) -> dict[str, Any]:
+    """Provide the viewer's neutral one-pin symbol for an ordinary named net."""
+
+    return _net_with_default_signal_symbol(net)
 
 
 def position_net_symbol_pin(
@@ -605,7 +672,16 @@ def _net_anchor(
 
     net_name = net.get("name")
     if isinstance(net_name, str) and net_name in net_symbol_groups:
-        points.append(_center(net_symbol_groups[net_name]))
+        projected = _net_with_default_signal_symbol(net)
+        symbol_points = [
+            net_symbol_pin_position(projected, position) for position in net_symbol_groups[net_name]
+        ]
+        points.append(
+            Point(
+                x=float(median(point.x for point in symbol_points)),
+                y=float(median(point.y for point in symbol_points)),
+            )
+        )
     if not points:
         return None
     return Point(
@@ -1092,8 +1168,11 @@ def _internal_signal_symbol_ids(
             continue
         net = nets.get(net_name)
         named_pair = sum(key.startswith(f"sym:{net_name}#") for key in positions) >= 2
-        if (not isinstance(net, dict) or _is_rail_net(net_name, net)
-                or (_is_named_interface_net(net) and named_pair)):
+        if (
+            not isinstance(net, dict)
+            or _is_rail_net(net_name, net)
+            or (_is_named_interface_net(net) and named_pair)
+        ):
             continue
         ports = tuple(port for port in net.get("ports", ()) if isinstance(port, str))
         local_components = {
@@ -1392,6 +1471,7 @@ def hang_leaf_series_from_device_pins(
                 net_symbols.setdefault(net_name, []).append((symbol_id, position))
 
         candidates: list[tuple[str, int, str, str, Point, Point, Position, Position]] = []
+        leaf_nets: dict[str, dict[str, Any]] = {}
         claimed_leaves: set[str] = set()
         for series_ref, series_group in sorted(component_groups.items()):
             if len(series_group) != 1:
@@ -1495,6 +1575,8 @@ def hang_leaf_series_from_device_pins(
                 ),
             )
             claimed_leaves.add(leaf_id)
+            leaf_source = resolved_to_source[leaf_id]
+            leaf_nets[leaf_source] = leaf_net
             terminal_points = [
                 pin_position(series, series_base, terminal) for terminal in terminals
             ]
@@ -1507,7 +1589,7 @@ def hang_leaf_series_from_device_pins(
                     owner_ref,
                     direction,
                     resolved_to_source[series_id],
-                    resolved_to_source[leaf_id],
+                    leaf_source,
                     owner_pin,
                     series_center,
                     leaf_position,
@@ -1560,10 +1642,14 @@ def hang_leaf_series_from_device_pins(
                     x=series_base.x + delta_x,
                     y=series_base.y + delta_y,
                 )
-                updated[leaf_source] = replace(
-                    updated[leaf_source],
-                    x=target_x + direction * leaf_offset,
-                    y=target_y,
+                leaf_target = Point(
+                    target_x + direction * leaf_offset,
+                    target_y,
+                )
+                updated[leaf_source] = position_net_symbol_pin(
+                    _net_with_default_signal_symbol(leaf_nets[leaf_source]),
+                    leaf_target,
+                    rotation=updated[leaf_source].rotation,
                 )
 
         modules.append(replace(module, positions=updated))
@@ -1958,7 +2044,14 @@ def _single_neighbour_pin_anchor(
 
     net_name = net.get("name")
     if isinstance(net_name, str) and net_name in net_symbol_groups:
-        return _center(net_symbol_groups[net_name])
+        projected = _net_with_default_signal_symbol(net)
+        points = [
+            net_symbol_pin_position(projected, position) for position in net_symbol_groups[net_name]
+        ]
+        return Point(
+            x=float(median(point.x for point in points)),
+            y=float(median(point.y for point in points)),
+        )
     return None
 
 
@@ -2005,7 +2098,8 @@ def align_leaf_series_endpoints(
             if separator and suffix.isdigit():
                 net_symbols.setdefault(net_name, []).append((symbol_id, position))
 
-        candidates: list[tuple[str, str, Point, Position, float]] = []
+        candidates: list[tuple[str, str, Point, Point, float]] = []
+        leaf_nets: dict[str, dict[str, Any]] = {}
         for component_ref, group in component_groups.items():
             if len(group) != 1:
                 continue
@@ -2066,24 +2160,29 @@ def align_leaf_series_endpoints(
                 x=float(median(point.x for point in terminal_points)),
                 y=float(median(point.y for point in terminal_points)),
             )
-            leaf_anchor = Point(leaf_position.x, leaf_position.y)
+            leaf_anchor = net_symbol_pin_position(
+                _net_with_default_signal_symbol(leaf_side),
+                leaf_position,
+            )
             if _opposing_anchor_axis(component_anchor, leaf_anchor, terminal_center) != "x":
                 continue
             if abs(component_anchor.y - terminal_center.y) > maximum_adjustment:
                 continue
+            leaf_source_id = resolved_to_source[leaf_id]
+            leaf_nets[leaf_source_id] = leaf_side
             candidates.append(
                 (
                     resolved_to_source[resolved_id],
-                    resolved_to_source[leaf_id],
+                    leaf_source_id,
                     terminal_center,
-                    leaf_position,
+                    leaf_anchor,
                     component_anchor.y,
                 )
             )
 
         updated = dict(module.positions)
         for candidate in sorted(candidates, key=lambda item: (item[2].x, item[4], item[0])):
-            series_source_id, leaf_source_id, terminal_center, leaf_position, target_y = candidate
+            series_source_id, leaf_source_id, terminal_center, leaf_anchor, target_y = candidate
             delta_y = target_y - terminal_center.y
             if abs(delta_y) > maximum_adjustment:
                 continue
@@ -2091,9 +2190,10 @@ def align_leaf_series_endpoints(
                 updated[series_source_id],
                 y=updated[series_source_id].y + delta_y,
             )
-            updated[leaf_source_id] = replace(
-                updated[leaf_source_id],
-                y=updated[leaf_source_id].y + target_y - leaf_position.y,
+            updated[leaf_source_id] = position_net_symbol_pin(
+                _net_with_default_signal_symbol(leaf_nets[leaf_source_id]),
+                Point(leaf_anchor.x, target_y),
+                rotation=updated[leaf_source_id].rotation,
             )
 
         modules.append(replace(module, positions=updated))

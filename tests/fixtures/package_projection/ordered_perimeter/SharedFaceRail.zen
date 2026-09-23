@@ -1,0 +1,24 @@
+"""Two return pins share one right-face trunk beyond adjacent signal stubs."""
+
+RETURN = Ground("RETURN")
+SIGNAL_A = Net("SIGNAL_A")
+SIGNAL_B = Net("SIGNAL_B")
+
+Component(
+    name="IC",
+    prefix="U",
+    type="integrated_circuit",
+    symbol=Symbol("OrderedPerimeter.kicad_sym", "GENERIC_MODULE"),
+    footprint=File("OrderedPerimeter.kicad_mod"),
+    part=Part(mpn="GENERIC", manufacturer="Generic"),
+    pins={
+        "Pin_1": NotConnected(),
+        "Pin_2": RETURN,
+        "Pin_3": NotConnected(),
+        "Pin_4": SIGNAL_A,
+        "Pin_5": NotConnected(),
+        "Pin_6": SIGNAL_B,
+        "Pin_7": NotConnected(),
+        "Pin_8": RETURN,
+    },
+)

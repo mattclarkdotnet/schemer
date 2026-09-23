@@ -239,7 +239,7 @@ def _package_body_symbol(
         for index, line in enumerate(caption_lines)
     ]
     escaped_name = _escape(symbol_name)
-    return f'''(kicad_symbol_lib (version 20220914) (generator schemer)
+    return f'''(kicad_symbol_lib (version 20251024) (generator schemer)
   (symbol "{escaped_name}" (pin_names (offset 1.016)) (in_bom yes) (on_board yes)
     (property "Reference" "U" (at {-half_width:.2f} {-half_height - 2.54:.2f} 0)
       (effects (font (size 1.27 1.27))))

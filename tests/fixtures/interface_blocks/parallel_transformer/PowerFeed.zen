@@ -1,0 +1,39 @@
+"""A datasheet-authored supply feed into one pin of a generic IC."""
+
+Resistor = Module("@stdlib/generics/Resistor.zen")
+
+SOURCE = io(Power)
+VDD = Power("VDD")
+VSYS = Power("VSYS")
+GND = Ground("GND")
+
+Component(
+    name="OWNER",
+    prefix="U",
+    symbol=Symbol("GenericBlocks.kicad_sym", "TRANSFORMER"),
+    footprint=File("GenericBlock.kicad_mod"),
+    part=Part(mpn="GENERIC", manufacturer="Generic"),
+    pins={
+        "PRI": VDD,
+        "PRI_RET": GND,
+        "SEC": VSYS,
+        "SEC_RET": NotConnected(),
+    },
+    type="integrated_circuit",
+)
+
+Resistor(
+    name="FEED",
+    value="1k",
+    package="0603",
+    P1=SOURCE,
+    P2=VSYS,
+    properties={
+        "schematic_properties": {
+            "role": "power-feed",
+            "group": "input-power",
+            "owner": "U1",
+            "pin": "SEC",
+        },
+    },
+)

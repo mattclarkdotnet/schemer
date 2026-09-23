@@ -438,6 +438,45 @@ def test_clean_schematic_labels_does_not_replace_a_net_with_one_letter_pin_name(
     }
 
 
+def test_clean_schematic_labels_does_not_replace_semantic_net_with_gpio_number() -> None:
+    root = "Board.zen:<root>"
+    controller = root + ".A1"
+    schematic = {
+        "root_ref": root,
+        "instances": {
+            root: {"symbol_positions": {"sym:SPDIF_TX#0": {"x": 1, "y": 2}}},
+            controller: {
+                "kind": "Component",
+                "children": {"GPIO19": controller + ".GPIO19"},
+                "attributes": {
+                    "type": "mcu_module",
+                    "__symbol_value": {
+                        "String": """
+                            (symbol "A"
+                              (pin bidirectional line (at 0 0 0)
+                                (name "GPIO19") (number "25")))
+                        """
+                    },
+                },
+            },
+        },
+        "nets": {
+            "SPDIF_TX": {
+                "kind": "Net",
+                "name": "SPDIF_TX",
+                "ports": [controller + ".GPIO19", root + ".U1.1", root + ".U1.3"],
+            }
+        },
+    }
+
+    cleaned = clean_schematic_labels(schematic)
+
+    assert set(cleaned["nets"]) == {"SPDIF_TX"}
+    assert cleaned["instances"][root]["symbol_positions"] == {
+        "sym:SPDIF_TX#0": {"x": 1, "y": 2}
+    }
+
+
 def test_clean_schematic_labels_keeps_net_names_when_pin_names_collide() -> None:
     root = "Board.zen:<root>"
     left = root + ".U1"

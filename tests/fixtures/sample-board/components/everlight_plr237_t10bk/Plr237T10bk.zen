@@ -7,7 +7,7 @@ VOUT = io(Net)
 Component(
     name="PLR237_T10BK",
     prefix="U",
-    symbol=Symbol("./symbols/Connector_Generic.kicad_sym", name="Conn_01x05"),
+    symbol=Symbol("./symbols/Plr237T10bk.kicad_sym", name="PLR237_T10BK"),
     footprint=File("./footprints/PLR237_T10BK.kicad_mod"),
     part=Part(
         mpn="PLR237/T10BK",
@@ -15,11 +15,11 @@ Component(
         datasheet="./docs/everlight-plr237-t10bk-rev1.pdf",
     ),
     pins={
-        "Pin_1": VCC,
-        "Pin_2": GND,
-        "Pin_3": VOUT,
-        "Pin_4": NotConnected(),
-        "Pin_5": NotConnected(),
+        "VCC": VCC,
+        "GND": GND,
+        "VOUT": VOUT,
+        "NC4": NotConnected(),
+        "NC5": NotConnected(),
     },
     properties={
         "value": "PLR237/T10BK optical S/PDIF input",

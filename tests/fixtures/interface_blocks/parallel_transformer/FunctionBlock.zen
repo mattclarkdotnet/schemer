@@ -1,0 +1,8 @@
+"""A reusable circuit whose caller supplies its schematic function."""
+
+Resistor = Module("@stdlib/generics/Resistor.zen")
+
+INPUT = Net("INPUT")
+OUTPUT = Net("OUTPUT")
+
+Resistor(name="PATH", value="1k", package="0603", P1=INPUT, P2=OUTPUT)

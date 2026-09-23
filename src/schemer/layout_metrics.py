@@ -9,8 +9,7 @@ from typing import Any
 from schemer.layout import Position
 from schemer.symbol_geometry import (
     placed_symbol_body_bounds,
-    rotated_offset,
-    symbol_local_bounds,
+    placed_symbol_bounds,
     symbol_pin_offsets,
 )
 from schemer.toolchain import ToolchainError
@@ -166,27 +165,12 @@ def _position(raw: dict[str, Any]) -> Position:
 def _symbol_envelope(instance: dict[str, Any], position: Position) -> Envelope:
     if position.mirror is not None:
         raise ToolchainError("sheet-scale metrics do not yet support mirrored symbols")
-    bounds = symbol_local_bounds(instance)
-    origin_x = position.x - bounds.min_x * _VIEWER_UNITS_PER_MM
-    origin_y = position.y + bounds.max_y * _VIEWER_UNITS_PER_MM
-    corners = (
-        (bounds.min_x, bounds.min_y),
-        (bounds.min_x, bounds.max_y),
-        (bounds.max_x, bounds.min_y),
-        (bounds.max_x, bounds.max_y),
-    )
-    transformed = [
-        (
-            origin_x + rotated_offset(corner, position.rotation)[0] * _VIEWER_UNITS_PER_MM,
-            origin_y + rotated_offset(corner, position.rotation)[1] * _VIEWER_UNITS_PER_MM,
-        )
-        for corner in corners
-    ]
+    bounds = placed_symbol_bounds(instance, position)
     return Envelope(
-        min(point[0] for point in transformed),
-        min(point[1] for point in transformed),
-        max(point[0] for point in transformed),
-        max(point[1] for point in transformed),
+        bounds.min_x,
+        bounds.min_y,
+        bounds.max_x,
+        bounds.max_y,
     )
 
 

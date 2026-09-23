@@ -15,27 +15,9 @@ from pathlib import Path
 from typing import Any
 
 from schemer.layout import LayoutPlan, resolve_module_position_ids
+from schemer.signal_termination_symbol import FILENAME, LIBRARY, SYMBOL, SYMBOL_NAME
 from schemer.symbol_geometry import _is_rail_net
 from schemer.toolchain import ToolchainError
-
-SYMBOL_NAME = "SignalTermination"
-# Both bounds must be finite: a zero-width line makes the installed router
-# detour around an otherwise collinear endpoint. The tiny end cap preserves
-# a neutral wire-end appearance without a supply/ground arrow.
-SYMBOL = '''(symbol "SignalTermination"
-  (pin_numbers hide) (pin_names (offset 0) hide)
-  (property "Reference" "#NET" (at 0 0 0) (effects (font (size 1.27 1.27)) hide))
-  (property "Value" "" (at 0 0 0) (effects (font (size 1.27 1.27))))
-  (symbol "SignalTermination_0_1"
-    (polyline (pts (xy 0 0) (xy 0 1.27) (xy -0.127 1.27) (xy 0.127 1.27))
-      (stroke (width 0) (type default))
-      (fill (type none))))
-  (symbol "SignalTermination_1_1"
-    (pin power_in line (at 0 0 90) (length 0)
-      (name "~" (effects (font (size 1.27 1.27))))
-      (number "1" (effects (font (size 1.27 1.27)))))))'''
-LIBRARY = f'(kicad_symbol_lib (version 20231120) (generator "schemer")\n{SYMBOL}\n)\n'
-FILENAME = "SchemerSignalTermination.kicad_sym"
 
 
 def with_signal_termination_symbols(schematic: dict[str, Any], plan: LayoutPlan) -> dict[str, Any]:
@@ -101,18 +83,23 @@ def signal_termination_sources(
 ) -> dict[Path, str]:
     """Persist explicit multiple plain-net endpoints in a proposal shadow."""
     overrides = {}
+    names_by_source: dict[Path, set[str]] = {}
     for module in plan.modules:
         resolved = resolve_module_position_ids(module, schematic)
         counts = Counter(key[4:].rsplit("#", 1)[0] for key in resolved if key.startswith("sym:"))
-        names = set()
         for name, count in counts.items():
             net = schematic["nets"].get(name, {})
             if count >= 2 and not _is_rail_net(name, net) and not net.get("properties", {}).get(
                 "__symbol_value"
             ):
-                names.add(name.rsplit(".", 1)[-1])
-        if names:
-            source = updates.get(module.source_path, module.source_path.read_text())
-            overrides[module.source_path] = annotate_net_calls(source, names)
-            overrides[module.source_path.parent / FILENAME] = LIBRARY
+                scope, _, local_name = name.rpartition(".")
+                owner_ref = schematic["root_ref"] + ("." + scope if scope else "")
+                owner = schematic["instances"].get(owner_ref, {})
+                source_path = owner.get("type_ref", {}).get("source_path")
+                path = Path(source_path) if source_path else module.source_path
+                names_by_source.setdefault(path, set()).add(local_name)
+    for path, names in names_by_source.items():
+        source = updates.get(path, path.read_text())
+        overrides[path] = annotate_net_calls(source, names)
+        overrides[path.parent / FILENAME] = LIBRARY
     return overrides

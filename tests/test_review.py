@@ -9,15 +9,17 @@ def test_review_targets_resolve_named_children_and_stable_slugs() -> None:
         "instances": {
             root: {"children": {"DSP_CORE": root + ".DSP_CORE", "USB": root + ".USB"}},
             root + ".DSP_CORE": {"children": {}},
-            root + ".USB": {"children": {}},
+            root + ".USB": {"children": {"CORE": root + ".USB.CORE"}},
+            root + ".USB.CORE": {"children": {}},
         },
     }
 
-    targets = direct_child_review_targets(schematic, ["DSP_CORE", "USB"])
+    targets = direct_child_review_targets(schematic, ["DSP_CORE", "USB", "USB.CORE"])
 
     assert [(target.slug, target.instance_ref) for target in targets] == [
         ("dsp-core", root + ".DSP_CORE"),
         ("usb", root + ".USB"),
+        ("usb-core", root + ".USB.CORE"),
     ]
 
 

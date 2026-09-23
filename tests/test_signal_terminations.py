@@ -8,17 +8,25 @@ from schemer.block_generation import generate_functional_ic_blocks
 from schemer.heuristic_block import (
     _Component,
     _has_straight_bundle,
+    _NetSymbolAttachment,
     _SeriesLink,
     _SeriesWire,
 )
 from schemer.layout import LayoutPlan, ModuleLayout, Position
 from schemer.shadow import materialize_proposal_shadow
 from schemer.signal_terminations import (
+    SYMBOL,
     annotate_net_calls,
     signal_termination_sources,
     with_signal_termination_symbols,
 )
-from schemer.symbol_geometry import _attribute_string, _terminal_nets, pin_positions
+from schemer.symbol_geometry import (
+    Point,
+    _attribute_string,
+    _terminal_nets,
+    net_symbol_pin_position,
+    pin_positions,
+)
 from schemer.toolchain import (
     DEFAULT_PCB_COMPILER,
     ToolchainError,
@@ -27,6 +35,23 @@ from schemer.toolchain import (
 )
 
 FIXTURES = Path(__file__).parent / "fixtures"
+
+
+def test_plain_net_attachment_targets_the_projected_symbol_pin() -> None:
+    target = Point(123.0, 456.0)
+    attachment = _NetSymbolAttachment(
+        "DATA",
+        {"name": "DATA", "kind": "Net", "properties": {}},
+        target,
+        rotation=270,
+    )
+
+    position = attachment.position()
+    projected = {"properties": {"__symbol_value": SYMBOL}}
+
+    assert net_symbol_pin_position(projected, position) == Point(
+        pytest.approx(target.x), pytest.approx(target.y)
+    )
 
 
 def test_symbol_projection_preserves_arguments_comments_and_layout():
@@ -49,6 +74,29 @@ OTHER = Net()
 def test_unsupported_bindings_fail_instead_of_guessing(source):
     with pytest.raises(ToolchainError):
         annotate_net_calls(source, {"DATA"})
+
+
+def test_nested_net_metadata_is_written_at_its_defining_source(tmp_path):
+    parent = tmp_path / "Parent.zen"
+    child = tmp_path / "Child.zen"
+    parent.write_text("# no local DATA binding\n")
+    child.write_text("DATA = Net()\n")
+    root = "fixture:<root>"
+    schematic = {
+        "root_ref": root,
+        "instances": {
+            root: {"type_ref": {"source_path": str(parent)}},
+            root + ".SUB": {"type_ref": {"source_path": str(child)}},
+        },
+        "nets": {"SUB.DATA": {"name": "SUB.DATA", "kind": "Net", "properties": {}}},
+    }
+    plan = LayoutPlan((ModuleLayout(root, parent, {
+        "sym:SUB.DATA#0": Position(0, 0), "sym:SUB.DATA#1": Position(100, 0),
+    }),))
+    overrides = signal_termination_sources(schematic, plan, {})
+    assert parent not in overrides
+    assert "symbol=Symbol" in overrides[child]
+    assert child.read_text() == "DATA = Net()\n"
 
 
 @pytest.mark.e2e

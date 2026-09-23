@@ -2,6 +2,7 @@ from pathlib import Path
 
 import pytest
 
+from schemer.cli import _validate_layout_file_overrides
 from schemer.shadow import find_workspace_root, materialize_proposal_shadow
 from schemer.toolchain import ToolchainError
 
@@ -21,6 +22,8 @@ def _fixture_workspace(root: Path) -> Path:
     _write(board / "Demo.zen", 'Module("Support.zen")\n')
     _write(board / "Support.zen", "# support\n")
     _write(board / "layout" / "large.kicad_pcb", "layout output")
+    _write(board / "layout" / "layout.kicad_pro", "project configuration")
+    _write(board / "layout" / "stale.kicad_sch", "stale generated schematic")
 
     _write(
         root / "packages" / "a" / "pcb.toml",
@@ -52,7 +55,13 @@ def test_materialized_shadow_preserves_tree_and_recursive_local_dependencies(
     assert (shadow.workspace / "boards" / "demo" / "Support.zen").is_file()
     assert (shadow.workspace / "packages" / "a" / "A.zen").is_file()
     assert (shadow.workspace / "packages" / "b" / "B.zen").is_file()
-    assert not (shadow.workspace / "boards" / "demo" / "layout").exists()
+    assert not (shadow.workspace / "boards" / "demo" / "layout" / "large.kicad_pcb").exists()
+    assert (
+        shadow.workspace / "boards" / "demo" / "layout" / "layout.kicad_pro"
+    ).read_text() == "project configuration"
+    assert not (
+        shadow.workspace / "boards" / "demo" / "layout" / "stale.kicad_sch"
+    ).exists()
     assert not (shadow.workspace / "packages" / "a" / "docs").exists()
     assert entrypoint.read_text() == 'Module("Support.zen")\n'
     assert (shadow.workspace / ".schemer-proposal.json").is_file()
@@ -64,3 +73,13 @@ def test_shadow_refuses_to_write_inside_source_workspace(tmp_path: Path) -> None
 
     with pytest.raises(ToolchainError, match="outside the source Zener workspace"):
         materialize_proposal_shadow(entrypoint, {}, source_root / "proposal")
+
+
+def test_layout_rejects_component_symbol_overrides(tmp_path: Path) -> None:
+    authored_symbol = tmp_path / "Component.kicad_sym"
+    authored_symbol.write_text("authored")
+    with pytest.raises(ToolchainError, match="source-defined component symbols"):
+        _validate_layout_file_overrides({authored_symbol: "replacement"})
+
+    _validate_layout_file_overrides({tmp_path / "NewNetTermination.kicad_sym": "new glyph"})
+    _validate_layout_file_overrides({Path("NetTermination.zen"): "presentation glyph"})

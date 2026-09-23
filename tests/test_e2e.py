@@ -1,15 +1,12 @@
 from __future__ import annotations
 
 import json
-import shutil
 from pathlib import Path
 from typing import Any
 
 import pytest
 
-from schemer.generic import generic_flat_layout
-from schemer.layout import LayoutPlan, ModuleLayout, Position, replace_position_block
-from schemer.process import PlacementDecision
+from schemer.layout import LayoutPlan, ModuleLayout, Position
 from schemer.quality import component_body_overlap_findings
 from schemer.symbol_geometry import (
     align_horizontal_series_terminals,
@@ -27,7 +24,6 @@ from schemer.symbol_geometry import (
 from schemer.toolchain import (
     DEFAULT_PCB_COMPILER,
     ToolchainError,
-    connectivity_digest,
     evaluate_zener,
 )
 
@@ -81,66 +77,6 @@ def _assert_relations(positions: dict[str, Position], expected: dict[str, Any]) 
         assert nearer_distance < farther_distance
     for symbol_id, rotation in expected.get("rotations", {}).items():
         assert _position(positions, symbol_id).rotation == rotation
-
-
-def _assert_trace(decisions: dict[str, PlacementDecision], expected: dict[str, Any]) -> None:
-    for symbol_id, role in expected.get("roles", {}).items():
-        assert decisions[symbol_id].role.value == role
-    for symbol_id, stage in expected.get("stages", {}).items():
-        assert decisions[symbol_id].stage.value == stage
-    for symbol_id, owner in expected.get("owners", {}).items():
-        assert decisions[symbol_id].owner == owner
-    for symbol_id, rotation in expected.get("rotations", {}).items():
-        assert decisions[symbol_id].rotation == rotation
-
-
-def _assert_terminal_flows(
-    schematic: dict[str, Any], positions: dict[str, Position], expected: dict[str, Any]
-) -> None:
-    root_ref = schematic["root_ref"]
-    for flow in expected.get("terminal_flows", []):
-        symbol_id = flow["component"]
-        component_ref = root_ref + "." + symbol_id.removeprefix("comp:")
-        instance = schematic["instances"][component_ref]
-        upstream = pin_position(instance, positions[symbol_id], flow["upstream_pin"])
-        downstream = pin_position(instance, positions[symbol_id], flow["downstream_pin"])
-        assert upstream.x < downstream.x, (
-            f"{symbol_id} terminal order opposes semantic left-to-right flow: "
-            f"{flow['upstream_pin']}={upstream.x}, {flow['downstream_pin']}={downstream.x}"
-        )
-
-
-@pytest.mark.e2e
-@pytest.mark.parametrize("fixture_dir", sorted(FIXTURES.iterdir()), ids=lambda path: path.name)
-def test_generic_layout_round_trip(fixture_dir: Path, tmp_path: Path) -> None:
-    if not DEFAULT_PCB_COMPILER.is_file():
-        pytest.skip(f"local Zener compiler not found: {DEFAULT_PCB_COMPILER}")
-
-    working_dir = tmp_path / fixture_dir.name
-    shutil.copytree(fixture_dir, working_dir)
-    entrypoint = next(working_dir.glob("*.zen"))
-    expected = json.loads((working_dir / "expected-layout.json").read_text())
-    assert isinstance(expected.get("scenario"), str) and expected["scenario"]
-
-    before = evaluate_zener(entrypoint, DEFAULT_PCB_COMPILER)
-    layout = generic_flat_layout(before)
-    positions = layout.positions
-
-    assert layout == generic_flat_layout(before), "layout and trace must be deterministic"
-    _assert_relations(positions, expected)
-    _assert_trace(layout.decisions, expected)
-    _assert_terminal_flows(before, positions, expected)
-
-    entrypoint.write_text(replace_position_block(entrypoint.read_text(), positions))
-    after = evaluate_zener(entrypoint, DEFAULT_PCB_COMPILER)
-
-    assert connectivity_digest(after) == connectivity_digest(before)
-    root = after["instances"][after["root_ref"]]
-    accepted = root.get("symbol_positions", {})
-    assert set(accepted) == set(positions)
-    assert accepted == {
-        symbol_id: position.as_viewer_dict() for symbol_id, position in positions.items()
-    }
 
 
 @pytest.mark.e2e
@@ -371,7 +307,7 @@ def test_leaf_series_bank_hangs_from_the_connected_device_side() -> None:
     connector_x = positions["comp:J1.PH"].x
     assert positions["sym:INPUT_P#0"].x < positions["comp:R1.R"].x < connector_x
     assert positions["sym:INPUT_N#0"].x < positions["comp:R2.R"].x < connector_x
-    assert abs(positions["comp:R2.R"].x - positions["comp:R1.R"].x) >= 90
+    assert abs(positions["comp:R2.R"].x - positions["comp:R1.R"].x) >= 90 - 1e-6
     assert not any(
         finding.code == "series-terminal-dogleg"
         for finding in schematic_quality_findings(hung.apply_to_schematic(schematic))

@@ -3,7 +3,7 @@
 Entrypoint: `boards/sample-board/SampleBoard.zen`.
 
 This is the digital module of an ABX project, presented on one schematic sheet:
-input connector → controller → S/PDIF and USB branches, with local power wiring.
+controller, S/PDIF and USB groups, with external interfaces along the bottom.
 The fixture includes its 19 required Zener modules, package manifests, symbols
 and footprints. Standard-library modules are supplied by the installed Zener
 toolchain. No other project checkout is required.

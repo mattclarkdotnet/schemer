@@ -12,7 +12,7 @@ from schemer.toolchain import ToolchainError
 
 _NET_SYMBOL_ID = re.compile(r"^sym:(.+)#(\d+)$")
 _GENERIC_PIN_NAME_BASES = {"p", "pad", "pin"}
-_GENERIC_PIN_NAME = re.compile(r"(?:pin|pad|p)?[_-]?[a-z]?\d+", re.IGNORECASE)
+_GENERIC_PIN_NAME = re.compile(r"(?:pin|pad|p|gpio)?[_-]?[a-z]?\d+", re.IGNORECASE)
 _NON_SIGNAL_PIN_NAMES = {"", "~", "nc", "n/c"}
 
 

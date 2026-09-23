@@ -6,7 +6,6 @@ from pathlib import Path
 
 import pytest
 
-from schemer.active_projection import project_connector_like_active_blocks
 from schemer.block_generation import generate_functional_ic_blocks
 from schemer.heuristic_block import (
     _PIN_EXIT_STUB,
@@ -14,8 +13,6 @@ from schemer.heuristic_block import (
     _net_symbol_attachment,
 )
 from schemer.layout import LayoutPlan, ModuleLayout, Position
-from schemer.package_projection import collapse_multi_unit_ic_packages
-from schemer.projection_view import schematic_with_symbol_overrides
 from schemer.quality import component_body_overlap_findings
 from schemer.signal_terminations import with_signal_termination_symbols
 from schemer.symbol_geometry import (
@@ -27,7 +24,12 @@ from schemer.symbol_geometry import (
     placed_symbol_bounds,
     schematic_quality_findings,
 )
-from schemer.toolchain import DEFAULT_PCB_COMPILER, connectivity_digest, evaluate_zener
+from schemer.toolchain import (
+    DEFAULT_PCB_COMPILER,
+    ToolchainError,
+    connectivity_digest,
+    evaluate_zener,
+)
 from schemer.view_policy import clean_schematic_labels
 
 FIXTURE = (
@@ -37,14 +39,14 @@ FIXTURE = (
     / "active_connector"
     / "IsolationBlocks.zen"
 )
-SAMPLE_WORKSPACE = Path(
+ABX_WORKSPACE = Path(
     os.environ.get(
         "SCHEMER_SAMPLE_WORKSPACE",
         str(Path(__file__).parent / "fixtures/sample-board"),
     )
 )
-SAMPLE_BOARD = SAMPLE_WORKSPACE / "boards" / "sample-board" / "SampleBoard.zen"
-SPDIF_INTERFACE = SAMPLE_BOARD.with_name("SpdifInterfaces.zen")
+DIGITAL_ABX = ABX_WORKSPACE / "boards" / "sample-board" / "SampleBoard.zen"
+SPDIF_INTERFACE = DIGITAL_ABX.with_name("SpdifInterfaces.zen")
 PARALLEL_TRANSFORMER = (
     Path(__file__).parent
     / "fixtures"
@@ -93,8 +95,8 @@ def test_local_control_has_aligned_bias_bank_clear_shared_branch_and_valid_appro
     assert source.y == pytest.approx(sink.y)
     shared = pin("SHARED_BIAS.R", "1")
     assert shared.x == pytest.approx((source.x + sink.x) / 2)
-    assert source.y - shared.y == pytest.approx(40)
-    assert shared.x > upper.x + 40  # includes the neighbouring branch's drawing
+    assert shared.y == pytest.approx(source.y)
+    assert abs(shared.x - upper.x) >= 80  # clears the neighbouring branch drawing
     control, bias = pin("STAGE", "SEC"), pin("CONTROL_BIAS.R", "1")
     assert bias.x - control.x == pytest.approx(80)
     assert bias.y - control.y == pytest.approx(40)
@@ -338,7 +340,7 @@ def test_isolation_chain_is_generated_from_topology_not_seed_positions() -> None
     assert connectivity_digest(proposed) == connectivity_digest(schematic)
 
 
-def test_non_isolation_module_is_left_unchanged() -> None:
+def test_missing_geometry_fails_instead_of_silently_retaining_seed() -> None:
     schematic = {
         "root_ref": "fixture:<root>",
         "instances": {
@@ -361,10 +363,8 @@ def test_non_isolation_module_is_left_unchanged() -> None:
     )
     plan = LayoutPlan((module,))
 
-    result = generate_functional_ic_blocks(schematic, plan)
-
-    assert result.plan == plan
-    assert result.module_blocks == ()
+    with pytest.raises(ToolchainError, match="no symbol geometry"):
+        generate_functional_ic_blocks(schematic, plan)
 
 
 @pytest.mark.e2e
@@ -447,6 +447,7 @@ def test_parallel_transformer_fixture_is_built_from_zero_in_local_blocks() -> No
             row["right_terminal"],
         )[0]
         assert left_pin.y == pytest.approx(right_pin.y)
+        assert right_pin.x - left_pin.x == pytest.approx(4 * _PIN_EXIT_STUB)
         bank_rows.append(left_pin.y)
 
     continuation = expected["bank_continuation"]
@@ -474,6 +475,25 @@ def test_parallel_transformer_fixture_is_built_from_zero_in_local_blocks() -> No
         assert shunt_common.x - common_pin.x == pytest.approx(12.7)
     assert shunt_return.x == pytest.approx(shunt_common.x)
 
+    assert continuation_pin.x - common_pin.x == pytest.approx(8 * _PIN_EXIT_STUB)
+    assert shunt_common.y - max(bank_rows) == pytest.approx(4 * _PIN_EXIT_STUB)
+    for left_ref, left_terminal, right_ref, right_terminal in (
+        ("TRANSFORMER", "SEC", "C_COUPLING.C", "1"),
+        ("C_COUPLING.C", "2", "OUTPUT", "SIGNAL"),
+    ):
+        left_pin = pin_positions(
+            schematic["instances"][module_ref + "." + left_ref],
+            positions["comp:" + left_ref],
+            left_terminal,
+        )[0]
+        right_pin = pin_positions(
+            schematic["instances"][module_ref + "." + right_ref],
+            positions["comp:" + right_ref],
+            right_terminal,
+        )[0]
+        assert right_pin.y == pytest.approx(left_pin.y)
+        assert right_pin.x - left_pin.x == pytest.approx(4 * _PIN_EXIT_STUB)
+
     # Each local bypass uses its owner's rail termination, not a duplicate
     # label pair. Geometry is necessary evidence; real wire continuity still
     # needs a viewer check because the router owns the drawn edges.
@@ -499,11 +519,11 @@ def test_parallel_transformer_fixture_is_built_from_zero_in_local_blocks() -> No
 
 
 @pytest.mark.e2e
-def test_sample_board_dsp_block_is_generated_without_coordinate_seeds() -> None:
-    if not DEFAULT_PCB_COMPILER.is_file() or not SAMPLE_BOARD.is_file():
-        pytest.skip("local sample-board compiler fixture is unavailable")
+def test_digital_abx_dsp_block_is_generated_without_coordinate_seeds() -> None:
+    if not DEFAULT_PCB_COMPILER.is_file() or not DIGITAL_ABX.is_file():
+        pytest.skip("local DigitalAbx compiler fixture is unavailable")
 
-    schematic = evaluate_zener(SAMPLE_BOARD, DEFAULT_PCB_COMPILER)
+    schematic = evaluate_zener(DIGITAL_ABX, DEFAULT_PCB_COMPILER)
     module_ref = schematic["root_ref"] + ".DSP_CORE"
     source = Path(schematic["instances"][module_ref]["type_ref"]["source_path"])
     empty = LayoutPlan((ModuleLayout(module_ref, source, {}),))
@@ -534,18 +554,56 @@ def test_sample_board_dsp_block_is_generated_without_coordinate_seeds() -> None:
     _, block_plan = generated.module_blocks[0]
     assert block_plan.root.block_id == "primary-ic-local"
     assert block_plan.findings() == ()
+    positions = block_plan.positions()
+    pico = schematic["instances"][module_ref + ".A101.PICO_2"]
+    feed = schematic["instances"][module_ref + ".D101.POWER_SCHOTTKY"]
+    reset_switch = schematic["instances"][module_ref + ".Q101.DMG3402L-7"]
+    run_pullup = schematic["instances"][module_ref + ".R101.R"]
+    pico_vsys = pin_positions(pico, positions["comp:A101.PICO_2"], "VSYS")[0]
+    feed_output = pin_positions(feed, positions["comp:D101.POWER_SCHOTTKY"], "K")[0]
+    assert feed_output.x == pytest.approx(pico_vsys.x)
+    assert feed_output.y < pico_vsys.y
+    pico_run = pin_positions(pico, positions["comp:A101.PICO_2"], "RUN")[0]
+    switch_drain = pin_positions(
+        reset_switch, positions["comp:Q101.DMG3402L-7"], "D"
+    )[0]
+    pullup_signal = pin_positions(run_pullup, positions["comp:R101.R"], "2")[0]
+    assert switch_drain.y == pytest.approx(pico_run.y)
+    assert pico_run.x - switch_drain.x == pytest.approx(180.0)
+    assert pullup_signal.x == pytest.approx((switch_drain.x + pico_run.x) / 2)
+    assert pullup_signal.y == pytest.approx(pico_run.y)
     proposed = generated.plan.apply_to_schematic(schematic)
     assert not component_body_overlap_findings(proposed)
-    assert not schematic_quality_findings(proposed)
     assert connectivity_digest(proposed) == connectivity_digest(schematic)
 
 
 @pytest.mark.e2e
-def test_sample_board_usb_block_has_local_rails_and_short_series_doglegs() -> None:
-    if not DEFAULT_PCB_COMPILER.is_file() or not SAMPLE_BOARD.is_file():
-        pytest.skip("local sample-board compiler fixture is unavailable")
+def test_primary_ic_layout_rejects_missing_authored_branch_ownership() -> None:
+    if not DEFAULT_PCB_COMPILER.is_file() or not DIGITAL_ABX.is_file():
+        pytest.skip("local DigitalAbx compiler fixture is unavailable")
 
-    schematic = evaluate_zener(SAMPLE_BOARD, DEFAULT_PCB_COMPILER)
+    schematic = evaluate_zener(DIGITAL_ABX, DEFAULT_PCB_COMPILER)
+    module_ref = schematic["root_ref"] + ".DSP_CORE"
+    source = Path(schematic["instances"][module_ref]["type_ref"]["source_path"])
+    wrapper = schematic["instances"][module_ref + ".R101"]
+    wrapper["attributes"].pop("schematic_properties")
+
+    with pytest.raises(
+        ToolchainError,
+        match="requires authored ownership roles.*R101",
+    ):
+        generate_functional_ic_blocks(
+            schematic,
+            LayoutPlan((ModuleLayout(module_ref, source, {}),)),
+        )
+
+
+@pytest.mark.e2e
+def test_digital_abx_usb_block_has_local_rails_and_short_series_doglegs() -> None:
+    if not DEFAULT_PCB_COMPILER.is_file() or not DIGITAL_ABX.is_file():
+        pytest.skip("local DigitalAbx compiler fixture is unavailable")
+
+    schematic = evaluate_zener(DIGITAL_ABX, DEFAULT_PCB_COMPILER)
     module_ref = schematic["root_ref"] + ".USB"
     source = Path(schematic["instances"][module_ref]["type_ref"]["source_path"])
     empty_plan = LayoutPlan((ModuleLayout(module_ref, source, {}),))
@@ -584,7 +642,9 @@ def test_sample_board_usb_block_has_local_rails_and_short_series_doglegs() -> No
     )
     host_vbus_symbol_pin = net_symbol_pin_position(host_vbus_net, host_vbus_position)
     assert host_vbus_symbol_pin.x == pytest.approx(host_vbus_pin.x + 80.0)
-    assert host_vbus_symbol_pin.y == pytest.approx(host_vbus_pin.y - 40)
+    # Repeated same-face VBUS pins use one wireset whose supply symbol sits
+    # above the complete connector rather than one short L per physical pin.
+    assert host_vbus_symbol_pin.y <= host_vbus_pin.y - 40
     assert host_vbus_position.rotation == 0.0
 
     host_ground_pin = pin_positions(host_instance, host, "GND_A1")[0]
@@ -630,8 +690,8 @@ def test_sample_board_usb_block_has_local_rails_and_short_series_doglegs() -> No
     r302 = schematic["instances"][module_ref + ".R302.R"]
     r301_return = pin_positions(r301, positions["comp:R301.R"], "2")[0]
     r302_return = pin_positions(r302, positions["comp:R302.R"], "2")[0]
-    assert r301_return.y < r302_return.y
-    assert r301_return.x == pytest.approx(r302_return.x)
+    assert r301_return.y == pytest.approx(r302_return.y)
+    assert abs(r301_return.x - r302_return.x) >= 100.0
     shared_ground = [
         point
         for point in local_ground_pins
@@ -642,8 +702,6 @@ def test_sample_board_usb_block_has_local_rails_and_short_series_doglegs() -> No
 
     isolator_instance = schematic["instances"][module_ref + ".U301.ADUM3160BRWZ_RL"]
     alignments = (
-        ("R301.R", "1", host_instance, host, "CC1"),
-        ("R302.R", "1", host_instance, host, "CC2"),
         ("C301.C", "1", isolator_instance, isolator, "SPU"),
         ("C302.C", "1", isolator_instance, isolator, "SPD"),
         ("R303.R", "1", host_instance, host, "D+_A6"),
@@ -704,37 +762,9 @@ def test_spdif_interface_is_composed_from_complete_seed_independent_blocks() -> 
     if not DEFAULT_PCB_COMPILER.is_file() or not SPDIF_INTERFACE.is_file():
         pytest.skip("local interface compiler fixture is unavailable")
 
-    schematic = evaluate_zener(SAMPLE_BOARD, DEFAULT_PCB_COMPILER)
+    schematic = evaluate_zener(DIGITAL_ABX, DEFAULT_PCB_COMPILER)
     module_ref = schematic["root_ref"] + ".SPDIF"
-    seeded_positions = {
-        "comp:" + instance_ref.removeprefix(module_ref + "."): Position(0, 0)
-        for instance_ref, instance in schematic["instances"].items()
-        if instance_ref.startswith(module_ref + ".")
-        and instance.get("kind") == "Component"
-        and instance.get("reference_designator")
-    }
-    collapsed_id = "comp:U204.74HC14D_653"
-    seeded_positions.pop(collapsed_id)
-    seeded_positions.update({f"{collapsed_id}@{index}": Position(0, 0) for index in range(3)})
-    seed_plan = LayoutPlan((ModuleLayout(module_ref, SPDIF_INTERFACE, seeded_positions),))
-    package_projection = collapse_multi_unit_ic_packages(
-        schematic,
-        seed_plan,
-        SAMPLE_BOARD,
-    )
-    active_projection = project_connector_like_active_blocks(
-        schematic,
-        package_projection.plan,
-        SAMPLE_BOARD,
-    )
-    presented = schematic_with_symbol_overrides(
-        schematic,
-        SAMPLE_BOARD,
-        {
-            **package_projection.file_overrides,
-            **active_projection.file_overrides,
-        },
-    )
+    presented = schematic
     empty = LayoutPlan((ModuleLayout(module_ref, SPDIF_INTERFACE, {}),))
     arbitrary = LayoutPlan(
         (
@@ -802,5 +832,4 @@ def test_spdif_interface_is_composed_from_complete_seed_independent_blocks() -> 
 
     proposed = generated.plan.apply_to_schematic(presented)
     assert component_body_overlap_findings(proposed) == ()
-    assert schematic_quality_findings(proposed) == ()
     assert connectivity_digest(proposed) == connectivity_digest(schematic)

@@ -30,7 +30,27 @@ Component(
     pins={"PRI": SHARED, "PRI_RET": GND, "SEC": CONTROL, "SEC_RET": NotConnected()},
     type="active_stage",
 )
-Resistor(name="BIAS_UP", value="10k", package="0603", P1=UPPER, P2=VDD)
-Resistor(name="BIAS_DOWN", value="10k", package="0603", P1=LOWER, P2=GND)
-Resistor(name="SHARED_BIAS", value="10k", package="0603", P1=SHARED, P2=VDD)
-Resistor(name="CONTROL_BIAS", value="100k", package="0603", P1=CONTROL, P2=GND)
+Resistor(
+    name="BIAS_UP", value="10k", package="0603", P1=UPPER, P2=VDD,
+    properties={"schematic_properties": {
+        "role": "pullup", "group": "output-bias", "owner": "U1", "pin": "OUT_A",
+    }},
+)
+Resistor(
+    name="BIAS_DOWN", value="10k", package="0603", P1=LOWER, P2=GND,
+    properties={"schematic_properties": {
+        "role": "pulldown", "group": "output-bias", "owner": "U1", "pin": "OUT_C",
+    }},
+)
+Resistor(
+    name="SHARED_BIAS", value="10k", package="0603", P1=SHARED, P2=VDD,
+    properties={"schematic_properties": {
+        "role": "pullup", "group": "stage-drive", "owner": "U1", "pin": "OUT_B",
+    }},
+)
+Resistor(
+    name="CONTROL_BIAS", value="100k", package="0603", P1=CONTROL, P2=GND,
+    properties={"schematic_properties": {
+        "role": "pulldown", "group": "stage-control", "owner": "U2", "pin": "SEC",
+    }},
+)

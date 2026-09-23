@@ -2,47 +2,53 @@
 
 Schemer generates schematics from [Zener](https://github.com/diodeinc/pcb) projects.
 It places each IC with its local wiring and support components, measures the
-group, then arranges the groups into a complete drawing. Positions are saved as
-`# pcb:sch` comments and rendered using the Zener VS Code extension.
+group, then arranges the groups into a native KiCad schematic. Authored symbols,
+fonts and component roles are preserved.
 
 The included sample board is the main example.
 [View its schematic](docs/images/sample-board.png).
-Text and small-component sizing still need work; the
-[renderer-sizing note](docs/renderer-sizing.md) describes the controls we'd like
-from the renderer.
 
 ## Try it
 
 You need [uv](https://docs.astral.sh/uv/), the Zener compiler and VS Code
-extension, and Chrome. Tested on macOS with `pcbc 0.4.30` and Zener extension
-`2.1.41`. VS Code can stay closed.
+extension, Chrome, and KiCad 10. VS Code can stay closed.
 
 ```sh
 git clone https://github.com/mattclarkdotnet/schemer.git
 cd schemer
-uv run schemer layout tests/fixtures/sample-board/boards/sample-board/SampleBoard.zen \
-  --experimental-hints --proposal-dir artifacts/sample-board-proposal \
-  --render artifacts/sample-board.png --width 8000 --height 6000 --zoom 1
+mkdir -p artifacts
+pcb apply schematic tests/fixtures/sample-board/boards/sample-board/SampleBoard.zen --no-open
+uv run schemer layout-kicad tests/fixtures/sample-board/boards/sample-board/SampleBoard.zen \
+  tests/fixtures/sample-board/boards/sample-board/layout/SampleBoard/SampleBoard.kicad_sch \
+  --output artifacts/SampleBoard.kicad_sch
 ```
 
-The PNG is written to `artifacts/sample-board.png`; the generated Zener files go
-into `artifacts/sample-board-proposal/`. The board's local dependencies are
-included in the fixture.
+Open `artifacts/SampleBoard.kicad_sch` in KiCad. The command checks every physical
+pin against the Zener netlist before saving. The fixture includes the board's
+local dependencies; no other project checkout is needed.
 
-Schemer finds `pcbc` or `pcb` on `PATH`, the standard VS Code extensions
+Schemer finds `pcb` on `PATH`, the standard VS Code extensions
 directory, and macOS Chrome. For other locations, use `--compiler`,
 `--extension`, and `--chrome`, or set `SCHEMER_COMPILER`,
 `SCHEMER_EXTENSION_ROOT`, and `SCHEMER_CHROME`.
 
-For your own Zener workspace:
+KiCad's `kicad-cli` must be on PATH or in the standard macOS installation.
+Use `--kicad-cli` for another location. For your own board, run `pcb apply
+schematic` first, then pass its source and generated schematic to `layout-kicad`.
+
+## Legacy renderer
+
+The original Zener viewer path remains available:
 
 ```sh
-uv run schemer layout /path/to/project/Board.zen \
-  --proposal-dir artifacts/proposal --render artifacts/proposal.png --zoom 1
+uv run schemer layout tests/fixtures/sample-board/boards/sample-board/SampleBoard.zen \
+  --proposal-dir artifacts/sample-board-proposal --render artifacts/sample-board.png --zoom 1
 ```
 
 The proposal is a source copy, leaving your project unchanged.
 `uv run schemer layout --help` lists the options.
+
+The [renderer-sizing note](docs/renderer-sizing.md) records limitations of that viewer.
 
 ## Development
 

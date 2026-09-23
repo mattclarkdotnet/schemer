@@ -1,7 +1,9 @@
 from copy import deepcopy
 from pathlib import Path
 
-from schemer.generic_plan import generic_layout_plan
+import pytest
+
+from schemer.generic_plan import _configured_source_net_names, generic_layout_plan
 from schemer.layout import Position
 from schemer.toolchain import Toolchain, ToolchainError
 
@@ -11,14 +13,42 @@ def _toolchain() -> Toolchain:
     return Toolchain(compiler=placeholder, extension=placeholder, chrome=placeholder)
 
 
+def test_configured_module_ports_preserve_source_net_names() -> None:
+    def module(ref, dc_input):
+        return {
+            "root_ref": ref,
+            "instances": {
+                ref: {
+                    "attributes": {
+                        "__signature": {
+                            "Json": {
+                                "parameters": [
+                                    {"name": "DC_INPUT", "value": {"Net": {"name": dc_input}}},
+                                    {"name": "POWER_GND", "value": {"Net": {"name": "POWER_GND"}}},
+                                ]
+                            }
+                        }
+                    }
+                }
+            },
+        }
+
+    source = module("Child.zen:<root>", "DC_INPUT")
+    target = module("Board.zen:<root>.POWER", "V12_PROTECTED")
+    assert _configured_source_net_names(
+        source, target, "Board.zen:<root>.POWER"
+    ) == {"V12_PROTECTED": "DC_INPUT"}
+
+
+@pytest.mark.parametrize("child_path", ["FUNCTION", "TRANSPARENT.FUNCTION"])
 def test_generic_plan_resets_stored_positions_and_expands_only_opaque_children(
-    tmp_path: Path,
+    tmp_path: Path, child_path: str,
 ) -> None:
     entrypoint = tmp_path / "Circuit.zen"
     child_source = tmp_path / "Function.zen"
     wrapper_source = tmp_path / "Port.zen"
     root_ref = str(entrypoint) + ":<root>"
-    child_ref = root_ref + ".FUNCTION"
+    child_ref = root_ref + "." + child_path
     wrapper_ref = root_ref + ".PORT"
     schematic = {
         "root_ref": root_ref,
@@ -62,7 +92,7 @@ def test_generic_plan_resets_stored_positions_and_expands_only_opaque_children(
         assert focused["instances"][focused["root_ref"]]["symbol_positions"] == {}
         if focused["root_ref"] == root_ref:
             return {
-                "comp:FUNCTION": Position(10, 20),
+                f"comp:{child_path}": Position(10, 20),
                 "comp:PORT.PHYSICAL": Position(-10, 20),
             }
         return {"comp:IC": Position(0, 0)}
@@ -133,7 +163,10 @@ def test_generic_plan_generates_shared_module_source_once(tmp_path: Path) -> Non
     assert [module.source_path for module in plan.modules] == [entrypoint, shared_source]
 
 
-def test_generic_plan_maps_standalone_designators_to_configured_instance(tmp_path: Path) -> None:
+@pytest.mark.parametrize("renamed_net", [False, True])
+def test_generic_plan_maps_standalone_designators_to_configured_instance(
+    tmp_path: Path, renamed_net: bool,
+) -> None:
     entrypoint = tmp_path / "Circuit.zen"
     child_source = tmp_path / "Function.zen"
     part_source = tmp_path / "Part.zen"
@@ -172,6 +205,10 @@ def test_generic_plan_maps_standalone_designators_to_configured_instance(tmp_pat
         "nets": {},
         "symbols": {},
     }
+    actual_net = "RETURN" if renamed_net else "SIGNAL"
+    schematic["nets"] = {"n1": {"name": actual_net}}
+    standalone["nets"] = {"n1": {"name": "SIGNAL"}}
+    focused_calls = []
 
     def fake_evaluator(path: Path, _compiler: Path) -> dict:
         assert path == child_source
@@ -180,6 +217,12 @@ def test_generic_plan_maps_standalone_designators_to_configured_instance(tmp_pat
     def fake_auto_place(focused: dict, _toolchain: Toolchain) -> dict[str, Position]:
         if focused["root_ref"] == root_ref:
             return {"comp:FUNCTION": Position(0, 0)}
+        if focused["root_ref"] == child_ref:
+            focused_calls.append(child_ref)
+            return {
+                "comp:R101.PART": Position(50, 60),
+                f"sym:{actual_net}#0": Position(10, 60),
+            }
         return {
             "comp:R1.PART": Position(50, 60),
             "sym:SIGNAL#0": Position(10, 60),
@@ -195,5 +238,7 @@ def test_generic_plan_maps_standalone_designators_to_configured_instance(tmp_pat
 
     assert plan.modules[1].positions == {
         "comp:R101.PART": Position(50, 60),
-        "sym:SIGNAL#0": Position(10, 60),
+        f"sym:{actual_net}#0": Position(10, 60),
     }
+    assert focused_calls == ([child_ref] if renamed_net else [])
+    plan.apply_to_schematic(schematic)

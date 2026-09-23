@@ -8,13 +8,55 @@ from copy import deepcopy
 from pathlib import Path
 from typing import Any
 
-from schemer.layout import LayoutPlan, ModuleLayout, Position
+from schemer.layout import LayoutPlan, ModuleLayout, Position, resolve_module_position_ids
 from schemer.toolchain import Toolchain, ToolchainError, evaluate_zener
 from schemer.view_policy import focus_module
 from schemer.viewer import auto_place_schematic
 
 AutoPlacer = Callable[[dict[str, Any], Toolchain], dict[str, Position]]
 Evaluator = Callable[[Path, Path], dict[str, Any]]
+
+
+def _signature_net_bindings(instance: dict[str, Any]) -> dict[str, str]:
+    """Return module parameter names mapped to their evaluated net names."""
+
+    attributes = instance.get("attributes")
+    signature = attributes.get("__signature") if isinstance(attributes, dict) else None
+    payload = signature.get("Json") if isinstance(signature, dict) else None
+    parameters = payload.get("parameters") if isinstance(payload, dict) else None
+    if not isinstance(parameters, list):
+        return {}
+    result: dict[str, str] = {}
+    for parameter in parameters:
+        if not isinstance(parameter, dict) or not isinstance(parameter.get("name"), str):
+            continue
+        value = parameter.get("value")
+        net = value.get("Net") if isinstance(value, dict) else None
+        name = net.get("name") if isinstance(net, dict) else None
+        if isinstance(name, str):
+            result[parameter["name"]] = name
+    return result
+
+
+def _configured_source_net_names(
+    source_schematic: dict[str, Any], target_schematic: dict[str, Any], target_ref: str,
+) -> dict[str, str]:
+    """Map configured parent net names back to the child source's port names."""
+
+    source_root = source_schematic.get("root_ref")
+    source_instances = source_schematic.get("instances")
+    target_instances = target_schematic.get("instances")
+    source = source_instances.get(source_root) if isinstance(source_instances, dict) else None
+    target = target_instances.get(target_ref) if isinstance(target_instances, dict) else None
+    if not isinstance(source, dict) or not isinstance(target, dict):
+        return {}
+    source_bindings = _signature_net_bindings(source)
+    target_bindings = _signature_net_bindings(target)
+    return {
+        target_name: source_bindings[parameter]
+        for parameter, target_name in target_bindings.items()
+        if parameter in source_bindings and source_bindings[parameter] != target_name
+    }
 
 
 def _natural_key(value: str) -> tuple[object, ...]:
@@ -145,8 +187,8 @@ def generic_layout_plan(
 ) -> LayoutPlan:
     """Seed the root and its visible opaque child blocks without design knowledge.
 
-    A direct child receives its own source layout exactly when the root viewer
-    represents that child as one opaque ``comp:<child>`` block. Transparent
+    A descendant receives its own source layout exactly when the root viewer
+    represents it as one opaque ``comp:<path>`` block. Transparent
     wrappers remain part of their parent's sheet. The rule depends only on the
     evaluated hierarchy and viewer output.
     """
@@ -165,12 +207,12 @@ def generic_layout_plan(
     modules = [ModuleLayout(root_ref, entrypoint, root_positions)]
     seen_sources = {entrypoint}
 
-    for child_name, child_ref in children.items():
-        if (
-            not isinstance(child_name, str)
-            or not isinstance(child_ref, str)
-            or f"comp:{child_name}" not in root_positions
-        ):
+    for symbol_id in root_positions:
+        if not symbol_id.startswith("comp:") or "@" in symbol_id:
+            continue
+        child_ref = root_ref + "." + symbol_id.removeprefix("comp:")
+        child = instances.get(child_ref)
+        if not isinstance(child, dict) or child.get("kind") == "Component":
             continue
         source_path = _module_source_path(
             schematic,
@@ -179,6 +221,7 @@ def generic_layout_plan(
         )
         if source_path in seen_sources:
             continue
+        source_schematic: dict[str, Any] | None = None
         try:
             source_schematic = evaluator(source_path, toolchain.compiler)
         except ToolchainError:
@@ -198,9 +241,21 @@ def generic_layout_plan(
                     schematic,
                     child_ref,
                 )
+                # Parent wiring can rename or merge a child's standalone nets.
+                # Use the configured view if its standalone rail IDs no longer resolve.
+                resolve_module_position_ids(
+                    ModuleLayout(child_ref, source_path, positions), schematic,
+                )
             except ToolchainError:
                 positions = auto_placer(_fresh_module_view(schematic, child_ref), toolchain)
-        modules.append(ModuleLayout(child_ref, source_path, positions))
+        source_net_names = (
+            _configured_source_net_names(source_schematic, schematic, child_ref)
+            if source_schematic is not None
+            else {}
+        )
+        modules.append(ModuleLayout(
+            child_ref, source_path, positions, source_net_names=source_net_names,
+        ))
         seen_sources.add(source_path)
 
     return LayoutPlan(tuple(modules))

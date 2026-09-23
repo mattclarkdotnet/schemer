@@ -19,4 +19,9 @@ Component(
 )
 Resistor(name="FEED", value="10", P1=SOURCE, P2=LOCAL)
 Resistor(name="SERIES", value="100", P1=RAW, P2=SIGNAL)
-Resistor(name="BIAS", value="10k", P1=BIAS, P2=LOCAL)
+Resistor(
+    name="BIAS", value="10k", P1=BIAS, P2=LOCAL,
+    properties={"schematic_properties": {
+        "role": "pullup", "group": "local-bias", "owner": "U1", "pin": "Pin_6",
+    }},
+)

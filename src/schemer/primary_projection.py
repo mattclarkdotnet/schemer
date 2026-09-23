@@ -9,6 +9,7 @@ from typing import Any
 
 from schemer.layout import LayoutPlan
 from schemer.layout_metrics import primary_component
+from schemer.roles import schematic_properties
 from schemer.shadow import find_workspace_root
 from schemer.symbol_geometry import symbol_pin_electrical_types, symbol_pin_numbers
 from schemer.toolchain import ToolchainError
@@ -69,14 +70,20 @@ def ordered_perimeter_symbol(instance: dict[str, Any], symbol_name: str) -> str 
     named_numbers = symbol_pin_numbers(instance)
     electrical_types = symbol_pin_electrical_types(instance)
     pins: list[tuple[int, str, str]] = []
+    authored = schematic_properties(instance)
+    raw_layout = authored.get("pin_layout") if authored is not None else None
+    if raw_layout is not None and not isinstance(raw_layout, dict):
+        raise ToolchainError("pin_layout must be an object")
     for terminal in children:
         if not isinstance(terminal, str):
             return None
         number = named_numbers.get(terminal)
         terminal_match = _GENERIC_TERMINAL.fullmatch(terminal)
-        if number is None or not number.isdigit() or terminal_match is None:
+        if number is None or not number.isdigit():
             return None
-        if int(terminal_match.group(1)) != int(number):
+        if raw_layout is None and (
+            terminal_match is None or int(terminal_match.group(1)) != int(number)
+        ):
             return None
         electrical_type = electrical_types.get(terminal) or electrical_types.get(number)
         pins.append(
@@ -88,25 +95,56 @@ def ordered_perimeter_symbol(instance: dict[str, Any], symbol_name: str) -> str 
         )
 
     pins.sort()
-    if len(pins) < 8 or len(pins) % 2 or [pin[0] for pin in pins] != list(range(1, len(pins) + 1)):
-        return None
+    by_terminal = {pin[1]: pin for pin in pins}
+    if raw_layout is None:
+        if (
+            len(pins) < 8
+            or len(pins) % 2
+            or [pin[0] for pin in pins] != list(range(1, len(pins) + 1))
+        ):
+            return None
+        perimeter = pins
+        bottom: list[tuple[int, str, str]] = []
+    else:
+        unknown = set(raw_layout) - {"perimeter", "bottom"}
+        perimeter_names = raw_layout.get("perimeter")
+        bottom_names = raw_layout.get("bottom", [])
+        if (
+            unknown
+            or not isinstance(perimeter_names, list)
+            or not isinstance(bottom_names, list)
+            or not all(isinstance(name, str) for name in (*perimeter_names, *bottom_names))
+        ):
+            raise ToolchainError(
+                "pin_layout requires perimeter and optional bottom terminal-name lists"
+            )
+        ordered_names = [*perimeter_names, *bottom_names]
+        if len(set(ordered_names)) != len(ordered_names) or set(ordered_names) != set(children):
+            raise ToolchainError("pin_layout must name every component terminal exactly once")
+        if len(perimeter_names) < 8 or len(perimeter_names) % 2:
+            raise ToolchainError("pin_layout perimeter must contain an even number of pins")
+        perimeter = [by_terminal[name] for name in perimeter_names]
+        bottom = [by_terminal[name] for name in bottom_names]
 
-    side_count = len(pins) // 2
+    side_count = len(perimeter) // 2
     # A two-row module is an attachment surface, not a compact PCB footprint.
     # Five millimetres per row leaves room for ordinary reference/value text
     # and local branches without changing the eventual output scale.
     pitch = 5.08
     pin_length = 5.08
-    half_width = 12.7
+    bottom_half_span = (len(bottom) - 1) * pitch / 2 if bottom else 0.0
+    half_width = max(12.7, bottom_half_span + pitch)
     row_half_span = (side_count - 1) * pitch / 2
     half_height = row_half_span + pitch
-    left = pins[:side_count]
-    right = pins[side_count:]
+    left = perimeter[:side_count]
+    right = perimeter[side_count:]
     placements: list[tuple[tuple[int, str, str], float, float, int]] = []
     for index, pin in enumerate(left):
         placements.append((pin, -(half_width + pin_length), row_half_span - index * pitch, 0))
     for index, pin in enumerate(right):
         placements.append((pin, half_width + pin_length, -row_half_span + index * pitch, 180))
+    for index, pin in enumerate(bottom):
+        placements.append((pin, -bottom_half_span + index * pitch, -(half_height + pin_length), 90))
 
     pin_blocks = [
         f'''      (pin {pin_type} line (at {x:.2f} {y:.2f} {angle}) (length {pin_length:.2f})
@@ -118,7 +156,7 @@ def ordered_perimeter_symbol(instance: dict[str, Any], symbol_name: str) -> str 
     escaped_name = _escape(symbol_name)
     reference = _escape(_attribute_string(instance, "prefix") or "U")
     value = _escape(_attribute_string(instance, "value") or symbol_name)
-    return f'''(kicad_symbol_lib (version 20220914) (generator schemer)
+    return f'''(kicad_symbol_lib (version 20251024) (generator schemer)
   (symbol "{escaped_name}" (pin_names (offset 1.016) (hide yes))
     (in_bom yes) (on_board yes)
     (property "Reference" "{reference}" (at {-half_width:.2f} {-half_height - 2.54:.2f} 0)

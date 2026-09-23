@@ -42,7 +42,7 @@ class ReviewTarget:
 def direct_child_review_targets(
     schematic: dict[str, Any], child_names: list[str]
 ) -> tuple[ReviewTarget, ...]:
-    """Resolve selected placed child modules without board-specific viewer IDs."""
+    """Resolve selected module paths, including transparent parent wrappers."""
 
     root_ref = schematic.get("root_ref")
     instances = schematic.get("instances")
@@ -56,9 +56,12 @@ def direct_child_review_targets(
     targets: list[ReviewTarget] = []
     seen_slugs: set[str] = set()
     for child_name in child_names:
-        child_ref = children.get(child_name)
-        if not isinstance(child_ref, str):
-            raise ToolchainError(f"review child is absent from schematic root: {child_name}")
+        child_ref = root_ref
+        for segment in child_name.split("."):
+            parent = instances.get(child_ref, {})
+            child_ref = parent.get("children", {}).get(segment)
+            if not isinstance(child_ref, str):
+                raise ToolchainError(f"review child is absent from schematic root: {child_name}")
         target = ReviewTarget(child_name, child_ref)
         if target.slug in seen_slugs:
             raise ToolchainError(f"review target filenames collide at {target.slug!r}")

@@ -2,8 +2,11 @@
 
 Status: source audit for the working layout specification.
 
-This file records the sources behind the layout principles. Internal iteration
-reports and board-specific review notes are not part of this public snapshot.
+The inspected real-schematic exemplars and the rules promoted from them are
+maintained separately in
+[`reference-schematic-corpus.md`](reference-schematic-corpus.md). This file
+establishes the broader authority for the principles; the corpus records how
+those principles appear, or fail to appear, in actual drawings.
 
 Schemer distinguishes normative documentation standards, official EDA
 semantics, and practical drawing guidance. They answer different questions:
@@ -94,12 +97,16 @@ naming:
 It is useful corroboration for the broad visual grammar, but it is product
 guidance rather than a normative standard.
 
-## Applying the guidance
+## Application to DigitalAbx
 
 The sources establish general conventions; they do not determine a particular
 design's engineering narrative. That comes from the design itself and its
-author. Functional ordering should follow the circuit's purpose rather than
-being inferred from component reference numbers or a fixed page template.
+author. For DigitalAbx, Matt's intended story takes precedence:
+
+```text
+J1 -> DSP -> SPDIF
+          \-> USB
+```
 
 Power remains electrically complete but visually local to each functional
 cluster. Shared supply and ground nets use repeated local power/ground symbols
