@@ -76,9 +76,10 @@ the task. Give the agent this prompt in full:
 >    name, package, or geometric seed alone. If evidence permits more than one
 >    interpretation, record the ambiguity in the run review and stop; do not
 >    guess.
-> 6. Build the modified entrypoint and compare component inventory and
->    connectivity with the input. The only permitted electrical difference is
->    an explicitly reported correction to an erroneous copied source package.
+> 6. Build the modified entrypoint and check component inventory and
+>    connectivity against the input. If the circuit or a package's electrical
+>    contract needs correction, report it and request separate user approval.
+>    Do not silently change the baseline or bypass the preparation check.
 > 7. In the run review, list the files changed, intent added, datasheets and
 >    application circuits examined, unresolved ambiguities, and any proposed
 >    new hint or role kind. Keep citations and review coverage in this process
@@ -101,8 +102,7 @@ The coordinator checks the agent's diff and run review before invoking the
 procedural generator. The gate passes only when:
 
 1. the copied entrypoint builds;
-2. component inventory and connectivity are preserved, except for an explicit
-   correction to erroneous copied source;
+2. component inventory and connectivity are preserved;
 3. every active device appears in the review worklist and uses a functional
    symbol with checked pin names, numbers and grouping; placeholders block layout;
 4. every added field is durable domain intent consumed by layout;
@@ -110,10 +110,11 @@ procedural generator. The gate passes only when:
 6. no unresolved ownership or circuit-function ambiguity remains; and
 7. any material representation alternatives have an accepted user choice.
 
-New role or hint kinds remain experimental throughout that run and are
-presented for human review with the resulting schematic. Repetition of an
-existing role is expected; repeated need for the same relationship should be
-considered later as evidence for a generic procedural rule.
+An approved electrical correction requires a fresh preparation baseline and
+review. New role or hint kinds are proposals, not accepted source annotations:
+review and implement their generic schema/consumer support before using them.
+Repetition of an existing role is expected; repeated need for the same
+relationship may be evidence for a generic procedural rule.
 
 ## Coordinator handoff
 
@@ -126,7 +127,7 @@ need no domain annotation, not for unsupported or unresolved circuit intent.
 After annotation and review, run `schemer check-preparation RUN/preparation-review.json`.
 It checks worklist completeness, role/representation schema, unchanged evaluated
 inventory/connectivity, and source freshness. Pass `--preparation-review` to
-`layout`, `layout-kicad` or `layout-project`; draft mode does not bypass preparation.
+`layout-kicad` or `layout-project`; draft mode does not bypass preparation.
 This is an enforceable workflow handoff, not automated proof of datasheet
 understanding or visual quality. A changed source requires a renewed review.
 

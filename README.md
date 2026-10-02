@@ -91,6 +91,7 @@ Keep citations, reasoning, coverage and completion evidence in this worklist or
 its companion review. Source properties contain only durable circuit intent,
 not receipts proving review occurred. Do not duplicate existing symbol datasheet
 or part-identity fields. See the [source-review procedure](docs/primary-hinting-agent.md).
+For a copyable agent task, use the [annotation prompt](#annotation-agent-prompt) below.
 
 ### 3. Validate preparation and inspect sheet membership
 
@@ -146,6 +147,8 @@ structural worklists to check repetition, ownership and grouping; they are revie
 aids, not automatic verdicts. Trace local connections, power branches, crossings,
 labels and symbol clearance. Do not use tiny PNG previews as acceptance evidence.
 See the [layout principles](docs/schematic-layout-principles.md).
+The [review prompt](#independent-review-agent-prompt) below makes the inspection
+scope and expected findings explicit.
 
 Correct missing **intent** in the source copy. Correct generic spacing, packing
 or routing defects in the generator, not with per-board placement hints. Regenerate
@@ -156,6 +159,177 @@ compares physical pin membership with Zener; independent page checks are insuffi
 Candidates are disposable generated views. Manual finishing in KiCad is reasonable
 after handoff, but Schemer does not preserve those edits through regeneration.
 Never use a hand-edited candidate as the next compiler seed.
+
+## Using agents for annotation and review
+
+The CLI enforces preparation and checks generated connectivity; **you orchestrate
+the agents**. The prompts below are tasks to paste into your coding/engineering
+agent, not additional Schemer commands. The annotation agent needs source,
+compiler and datasheet access. The reviewer also needs to inspect the actual
+SVG/native drawings at readable detail scale. If it cannot do that, its report
+must say visual review is incomplete; reading SVG XML or a layout report is not
+a substitute for seeing the drawing.
+
+Use the same coordinator for the run, but preferably a fresh reviewer context
+for each candidate. Give that reviewer the accepted circuit intent and artifacts,
+not the generating agent's explanation of why its layout is good. On later
+rounds, supply prior finding IDs for resolution tracking, while still requiring
+fresh inspection of the whole requested scope.
+
+Replace every `<PLACEHOLDER>` with an actual path or decision. Keep candidate
+directories immutable and review files outside them. A useful handoff includes:
+
+| Pass | Inputs | Deliverable / stopping point |
+| --- | --- | --- |
+| Annotation | Prepared source, full component worklist, datasheets, accepted representation choices | Annotated copy, completed preparation review, unresolved questions or successful validation; no drawing yet |
+| Generation | Validated preparation and fresh compiler seed | New native candidate, layout report, structural worklists and SVG exports |
+| Independent review | Exact candidate, prepared source, reports, drawing guidance | Numbered findings, coverage and limitations; no source or layout edits |
+| Fix round | Human-approved findings and exact candidate/review paths | Generic corrections, tests and a new candidate for another independent review |
+
+### Annotation agent prompt
+
+Use this after step 1 has created the preparation directory. If asking an agent
+to perform step 1 too, supply the original entrypoint and a new output directory;
+tell it to run `schemer prepare` before editing anything.
+
+```text
+Prepare circuit intent for Schemer; do not generate a layout yet.
+
+Schemer checkout: <SCHEMER_REPO>
+Preparation directory: <RUN>
+Accepted representation choices / user constraints: <DECISIONS_OR_NONE>
+
+Read the repository instructions, README annotation reference,
+docs/primary-hinting-agent.md and docs/schematic-layout-principles.md.
+Read <RUN>/PREPARATION.md, source-facts.json and preparation-review.json.
+Resolve the copied entrypoint and workspace from that review file. Edit only
+that source copy and this run's review artifacts, never the original project.
+
+Work through every physical component in the worklist, including DNP parts.
+Evaluate the copied circuit and inspect the relevant datasheets. Audit every
+active device's actual source symbol, logical-to-physical pin mapping, units,
+supplies and supporting circuitry. Correct missing or placeholder symbols in
+the copied shared package, preserving electrical connectivity and pin identity.
+Do not substitute symbols in the generator or infer function from names alone.
+
+Add only evidenced, supported semantic intent: function, role, owner, pin,
+group, order, attachment, representation and sheet membership where useful.
+Follow transitive ownership through supporting devices. Leave routine geometry
+to the generator: no coordinates, right-of hints, font changes or routing hacks.
+Ask me before choosing between materially different valid representations.
+Reuse accepted choices. For a large design, propose a small number of useful
+circuit sheets with one hierarchy level, not one sheet per source module.
+
+Complete each worklist row's intent and symbol_review. Set reviewed=true only
+after doing that review. If no supported annotation is needed, explain why in
+annotation_not_needed; unsupported or ambiguous intent is not an exemption.
+Keep evidence and citations in <RUN>/annotation-notes.md, not receipt fields in
+source properties. Preserve generated paths, references and baseline digests.
+
+If evidence, a suitable symbol or an ownership decision is missing, record it
+in unresolved and ask me. Do not invent new schema fields or silently alter the
+circuit. An electrical correction needs separate approval and a new baseline.
+
+When all questions are resolved, build the copied entrypoint and run:
+uv run schemer check-preparation <RUN>/preparation-review.json
+Do not bypass failures or mark unexamined items complete to make it pass.
+Report changed files, intent/representation decisions, validation results and
+remaining blockers. Stop here; do not run layout or edit position records.
+```
+
+The coordinator checks the source diff and review evidence, then performs
+steps 3–4 and exports SVG. A sealed worklist proves completion/freshness checks,
+not that the agent's engineering interpretation was correct.
+
+### Independent review agent prompt
+
+Give this agent the generated root and all relevant child sheets, not just a
+selected screenshot. The `structural_review` entries in `layout-report.json`
+name the per-sheet worklists. For a large project, review one sheet at a time
+and retain a project-wide coverage list; a clean sheet is not a project pass.
+
+```text
+Independently review this Schemer candidate. Do not fix it in this pass.
+
+Schemer checkout: <SCHEMER_REPO>
+Preparation review: <RUN>/preparation-review.json
+Candidate directory and root schematic: <CANDIDATE>, <ROOT_KICAD_SCH>
+SVG exports: <SVG_DIRECTORY>
+Scope: <ALL_SHEETS_OR_EXPLICIT_SHEET_NAMES>
+Accepted circuit representation / constraints: <DECISIONS>
+Prior findings, if any: <PREVIOUS_REVIEW_OR_NONE>
+Write the review only to: <REVIEW_FILE_OUTSIDE_CANDIDATE>
+
+Read docs/schematic-layout-principles.md, especially its review pass, and the
+candidate's layout-report.json and structural-review worklists. Inspect the
+prepared source when resolving intended ownership or connectivity. Treat all
+inputs as read-only; do not edit source, generator code or candidate files.
+
+Inspect the SVG/native drawing of every sheet and local circuit in scope at
+readable detail scale. Use the worklists to check repeated circuits and missed
+grouping, not as automatic verdicts. Check the whole sheet before details.
+Prioritize missing connections/components, false visual connections, body or
+label collisions, detached owned support, confusing crossings and wraparound
+routes before minor polish. Check rail graphics against continuing wires,
+near-parallel strokes, junction clearance, caption association and orientation.
+
+Respect accepted representation boundaries and separate supply wiring from
+hard pullups/pulldowns. Repeated geometry must not force shared electrical
+connections. Prefer moving text before bending wires. Flag excessive wire
+length only when a feasible shorter arrangement preserves meaning, clearance
+and reasonable bend count. Passing a netlist check does not prove visual clarity.
+
+Return a Markdown ordered list with stable IDs such as REV-001. For each finding
+give severity (hard defect, significant readability issue, or minor/style),
+sheet, component/pin/net location, visible evidence, why it matters and a
+qualitative correction. Distinguish an actual connectivity failure from an
+apparently misleading drawing. Do not prescribe per-part coordinates or invent
+annotations to mask a generator bug; mark uncertain causes as uncertain.
+
+Report coverage, connectivity status from the report, anything you could not
+inspect, and an overall verdict with limitations. Recheck previous findings as
+resolved, still present or regressed, and look for new issues elsewhere too.
+If you cannot inspect the drawing, state that explicitly; do not claim a pass.
+```
+
+### Fix-and-regenerate agent prompt
+
+Use this only after deciding which findings to accept. It deliberately limits
+the task to one candidate; specify an explicit round count if you want a loop.
+
+```text
+Implement one fix round for this reviewed Schemer candidate.
+
+Schemer checkout: <SCHEMER_REPO>
+Prepared source and review: <COPIED_ENTRYPOINT>, <PREPARATION_REVIEW>
+Current candidate / reviewer report: <CANDIDATE>, <REVIEW_FILE>
+Accepted finding IDs: <IDS>
+Rejected or deferred findings, with reasons: <DECISIONS_OR_NONE>
+Next output directory (must be new): <NEXT_CANDIDATE>
+
+Read the findings and inspect their code paths before changing anything.
+Trace assignments, defaults, transforms and callers; before/after comparisons
+are verification, not the primary diagnosis. Separate missing source intent
+from generic placement/routing defects. Fix the responsible layer, not each
+example separately. No board/reference/part-number special cases, spatial hints,
+changed default symbol sizes or edits to generated candidate files.
+
+Add focused generic regressions for generator fixes and run the relevant tests,
+Ruff and architecture checks. If source intent or a symbol must change, follow
+the preparation renewal procedure; do not rewrite a seal or baseline to pass.
+Ask before changing electrical design or an accepted representation choice.
+
+Generate a fresh compiler seed, create the next native candidate using its
+validated preparation review, and export SVG through kicad-cli. Read the layout
+report and report any connectivity failure, including in draft mode. Preserve
+the previous candidate and review. Summarize changes by finding ID, tests run,
+remaining issues and artifact paths. Stop after this candidate; do not approve
+your own visual result or start another round without instruction.
+```
+
+Send that candidate back to the independent reviewer. If you use one agent for
+all passes, keep the same explicit handoffs and distinguish its self-check from
+independent review. Human acceptance remains the final decision.
 
 ## Complete hint and annotation reference
 
