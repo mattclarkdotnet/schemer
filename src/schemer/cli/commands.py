@@ -5,77 +5,14 @@ import json
 from dataclasses import asdict
 
 from schemer.analysis.hierarchy import plan_sheets
-from schemer.analysis.topology import inspect_schematic
 from schemer.integration.kicad_cli import verify_native_connectivity
-from schemer.integration.toolchain import (
-    Toolchain,
-    evaluate_zener,
-    resolve_toolchain,
-)
-from schemer.integration.viewer import render_schematic
+from schemer.integration.toolchain import evaluate_zener
 from schemer.kicad.document import KiCadSchematicDocument
 from schemer.kicad.editor import FileSchematic
 from schemer.native.association import associate_components
 from schemer.native.pipeline import layout_kicad_from_zener
 from schemer.source.hints import parse_hints
 from schemer.workflow.preparation import require_preparation
-
-
-def _toolchain_for(args: argparse.Namespace) -> Toolchain:
-    return resolve_toolchain(
-        compiler=args.compiler,
-        extension=args.extension,
-        chrome=args.chrome,
-    )
-
-
-def doctor(args: argparse.Namespace) -> int:
-    toolchain = _toolchain_for(args)
-    schematic = evaluate_zener(args.entrypoint, toolchain.compiler)
-    report = {
-        "compiler": str(toolchain.compiler),
-        "extension": str(toolchain.extension),
-        "chrome": str(toolchain.chrome),
-        "entrypoint": str(args.entrypoint.expanduser().resolve()),
-        "schematic": inspect_schematic(schematic),
-    }
-    if args.json:
-        print(json.dumps(report, indent=2, sort_keys=True))
-        return 0
-
-    print("Schemer toolchain is ready")
-    print(f"  compiler:  {report['compiler']}")
-    print(f"  extension: {report['extension']}")
-    print(f"  chrome:    {report['chrome']}")
-    facts = report["schematic"]
-    print(
-        "  schematic: "
-        f"{facts['instance_count']} evaluated instances, "
-        f"{facts['physical_component_count']} physical components, "
-        f"{facts['net_count']} nets"
-    )
-    print(f"  root children: {', '.join(facts['root_children'])}")
-    print(f"  existing root positions: {facts['root_position_count']} (informational only)")
-    print(f"  connectivity digest: {facts['connectivity_digest']}")
-    return 0
-
-
-def render(args: argparse.Namespace) -> int:
-    toolchain = _toolchain_for(args)
-    schematic = evaluate_zener(args.entrypoint, toolchain.compiler)
-    output = render_schematic(
-        schematic,
-        toolchain,
-        args.output,
-        width=args.width,
-        height=args.height,
-        timeout_seconds=args.timeout,
-        auto_place_on_load=args.auto_place,
-        messages_output=args.messages,
-        zoom_factor=args.zoom,
-    )
-    print(output)
-    return 0
 
 
 def report_sheet_plan(args: argparse.Namespace) -> int:

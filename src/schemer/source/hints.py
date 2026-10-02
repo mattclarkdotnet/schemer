@@ -141,13 +141,12 @@ class HintSet:
     applied: set[str] = field(default_factory=set)
 
     @classmethod
-    def from_source(cls, path: Path, *, allow_experimental: bool) -> HintSet:
+    def from_source(cls, path: Path) -> HintSet:
         hints = parse_hints(path.read_text()) if path.is_file() else ()
         pending = sorted({hint.kind for hint in hints} - APPROVED_KINDS)
-        if pending and not allow_experimental:
+        if pending:
             raise ToolchainError(
-                f"{path}: hint types await user review ({', '.join(pending)}); "
-                "use --experimental-hints for this run"
+                f"{path}: hint types await user review ({', '.join(pending)})"
             )
         return cls(hints)
 

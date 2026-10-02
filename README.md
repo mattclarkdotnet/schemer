@@ -26,16 +26,13 @@ Native exports have been exercised with KiCad 10. Schemer does not install these
 external tools. The Zener entrypoint needs a linked schematic, for example through
 `Board(..., schematic=True)` or `Project(...)`.
 
-The recommended native `layout-project` path needs neither Chrome nor an open
-KiCad/VS Code window. The legacy `layout`, `render` and `doctor` paths additionally
-use the installed Zener VS Code extension and headless Chrome.
+Schemer uses native KiCad output only. It needs neither Chrome, a Zener VS Code
+extension nor an open application window. Export previews with KiCad's CLI.
 
 | Dependency | Discovery / override |
 | --- | --- |
 | Compiler | `SCHEMER_COMPILER`, otherwise `pcb`/`pcbc` on PATH, then `~/.local/bin/pcb`; `--compiler PATH` overrides it. |
 | KiCad CLI | `kicad-cli` on PATH, otherwise the standard macOS KiCad app path; native commands accept `--kicad-cli PATH`. |
-| Legacy viewer assets | Newest usable `diode-inc.zener-*` under `~/.vscode/extensions`; override the directory with `SCHEMER_EXTENSION_ROOT` or select an installation with `--extension PATH`. |
-| Legacy browser | Standard macOS Chrome path; override with `SCHEMER_CHROME` or `--chrome PATH`. |
 
 The public snapshot includes a self-contained sample at
 `tests/fixtures/sample-board/boards/sample-board/SampleBoard.zen`. Use it as the
@@ -107,7 +104,7 @@ uv run schemer plan-sheets "$SCHEMER_ENTRY" --json
 The check requires complete coverage, unchanged inventory/connectivity, valid
 annotations and no unresolved questions, then seals the reviewed sources and
 resolved symbols. It cannot judge whether the datasheet interpretation is correct.
-All three layout commands require `--preparation-review`, including draft runs.
+Both layout commands require `--preparation-review`, including draft runs.
 
 Coordinate-only iterations reuse the review. Source, dependency or symbol changes
 require renewed preparation and review of affected intent. Do not clear digest
@@ -346,11 +343,10 @@ uv run python tools/apply_layout_hints.py COPIED_MODULE.zen HINTS.zen
 ```
 
 The hints file contains comments only. The helper preserves electrical source and
-position records. All three existing types are recognized by the parser. Legacy
-`layout --experimental-hints` only allows newly implemented types awaiting approval;
-it does not create unknown types, bypass preparation or permit `right-of`. Legacy
-hinted proposals require `--proposal-dir`. Native seeding consumes comment hints
-only where its applicable local builder can resolve them; prefer semantic roles.
+position records. All three existing types are recognized by the parser, but
+`right-of` is rejected by preparation. There is no command-line bypass for
+unapproved hint types. Native seeding consumes comment hints only where its
+applicable local builder can resolve them; prefer semantic roles.
 
 ### Generated positions are not intent hints
 
@@ -374,10 +370,10 @@ not the recommended first run. It also requires preparation and a fresh compiler
 seed; replacing an existing output requires `--overwrite`. Connectivity is checked
 before saving.
 
-Legacy `layout` creates position-comment proposals and requires the same preparation
-review; source writes happen only with explicit `--write`. `render` and the older
-review helpers produce raster viewer captures for diagnostics. Prefer native/SVG
-for new reviews. Use each command's `--help` for exact flags.
+The supported commands are `prepare`, `check-preparation`, `plan-sheets`,
+`inspect-kicad`, `layout-kicad` and `layout-project`. Use each command's `--help`
+for exact flags. The former `layout`, `render` and `doctor` commands have been
+removed, along with their browser renderer and raster review tools.
 
 ## Development
 
@@ -389,9 +385,9 @@ uv build
 ```
 
 Tests cover generic circuits, native editing/routing, preparation and architecture.
-Compiler/KiCad checks need those tools installed; optional legacy viewer tests use
-`SCHEMER_VIEWER_TESTS=1`. Public tests use the included sample; development tests
-can use `SCHEMER_ABX_WORKSPACE` for a separate integration corpus.
+Compiler/KiCad checks need those tools installed. Public tests use the included
+sample; development tests can use `SCHEMER_ABX_WORKSPACE` for a separate integration
+corpus.
 
 See [architecture](docs/architecture-refactor.md), [testing](docs/testing-strategy.md),
 [placement](docs/placement-process.md), [detailed hints](docs/layout-hints.md) and

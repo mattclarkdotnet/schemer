@@ -64,8 +64,7 @@ def test_approved_relation_roundtrips_without_coordinates(tmp_path):
     content = PREFIX + json.dumps(data) + "\n"
     source = tmp_path / "Circuit.zen"
     source.write_text(content)
-    assert HintSet.from_source(source, allow_experimental=False).hints[0].as_dict() == data
-    assert HintSet.from_source(source, allow_experimental=True).hints[0].as_dict() == data
+    assert HintSet.from_source(source).hints[0].as_dict() == data
     assert parse_hints(content)[0].blocks == ("B", "A")
     with pytest.raises(ToolchainError, match="itself"):
         parse_hints(PREFIX + json.dumps({**data, "blocks": ["A", "A"]}))

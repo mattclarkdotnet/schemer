@@ -161,16 +161,13 @@ def test_prepare_creates_pending_inventory_without_layout(tmp_path, monkeypatch,
 
 
 @pytest.mark.parametrize("args", [
-    ["layout", "source.zen", "--proposal-dir", "out"],
     ["layout-kicad", "source.zen", "seed.kicad_sch", "--output", "out.kicad_sch"],
     ["layout-project", "source.zen", "seed.kicad_sch", "--output", "out"],
 ])
 def test_all_layout_commands_stop_without_preparation(monkeypatch, capsys, args):
     import importlib
 
-    for module in ("schemer.cli.commands", "schemer.cli.main", "schemer.workflow.proposal"):
+    for module in ("schemer.cli.commands", "schemer.cli.main"):
         monkeypatch.setattr(importlib.import_module(module), "evaluate_zener", lambda *_: {})
-    monkeypatch.setattr("schemer.workflow.proposal.resolve_toolchain",
-                        lambda **_: SimpleNamespace(compiler="compiler"))
     assert cli.main(args) != 0
     assert "requires source preparation" in capsys.readouterr().err

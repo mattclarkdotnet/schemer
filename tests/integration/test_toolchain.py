@@ -4,47 +4,19 @@ import json
 import os
 import subprocess
 import sys
-from pathlib import Path
 
 from schemer.analysis.topology import connectivity_digest, inspect_schematic
-from schemer.integration.toolchain import find_zener_extension
 
 
-def test_toolchain_environment_overrides_are_portable(tmp_path):
-    overrides = {
-        "SCHEMER_COMPILER": str(tmp_path / "pcb"),
-        "SCHEMER_EXTENSION_ROOT": str(tmp_path / "extensions"),
-        "SCHEMER_CHROME": str(tmp_path / "chrome"),
-    }
+def test_compiler_environment_override_is_portable(tmp_path):
+    compiler = str(tmp_path / "pcb")
     result = subprocess.run(
         [sys.executable, "-c", "import json; from schemer.integration.toolchain import "
-         "DEFAULT_PCB_COMPILER, DEFAULT_EXTENSION_ROOT, DEFAULT_CHROME; "
-         "print(json.dumps(list(map(str, [DEFAULT_PCB_COMPILER, "
-         "DEFAULT_EXTENSION_ROOT, DEFAULT_CHROME]))))"],
-        env={**os.environ, **overrides}, capture_output=True, text=True, check=True,
+         "DEFAULT_PCB_COMPILER; print(json.dumps(str(DEFAULT_PCB_COMPILER)))"],
+        env={**os.environ, "SCHEMER_COMPILER": compiler},
+        capture_output=True, text=True, check=True,
     )
-    assert json.loads(result.stdout) == list(overrides.values())
-
-
-def _make_extension(root: Path, version: str) -> Path:
-    extension = root / f"diode-inc.zener-{version}"
-    wasm = extension / "wasm"
-    wasm.mkdir(parents=True)
-    for asset in (
-        "schematic_viewer.js",
-        "schematic_viewer_bg.wasm",
-        "worker.js",
-        "worker_bg.wasm",
-    ):
-        (wasm / asset).touch()
-    return extension
-
-
-def test_find_zener_extension_uses_numeric_version_order(tmp_path: Path) -> None:
-    _make_extension(tmp_path, "2.1.9")
-    expected = _make_extension(tmp_path, "2.1.41")
-
-    assert find_zener_extension(tmp_path) == expected
+    assert json.loads(result.stdout) == compiler
 
 
 def test_connectivity_digest_ignores_symbol_positions() -> None:

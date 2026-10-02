@@ -121,15 +121,13 @@ def test_comment_hints_drive_generic_geometry_and_survive_compilation(tmp_path, 
         pending_review.setattr("schemer.source.hints.APPROVED_KINDS", frozenset())
         with pytest.raises(ToolchainError, match="await user review"):
             generate_functional_ic_blocks(schematic, plan)
-        experimental = generate_functional_ic_blocks(schematic, plan, allow_experimental_hints=True)
 
     result = generate_functional_ic_blocks(schematic, plan)
-    assert result == experimental
     seeded = replace(
         plan,
         modules=(replace(module, positions={"comp:TRANSFORMER": Position(99999, -77777, 180)}),),
     )
-    assert result == generate_functional_ic_blocks(schematic, seeded, allow_experimental_hints=True)
+    assert result == generate_functional_ic_blocks(schematic, seeded)
     assert len(result.applied_hints) == 2
     positions = result.plan.modules[0].positions
     assert set(positions) == set(baseline.plan.modules[0].positions)
@@ -152,11 +150,11 @@ def test_comment_hints_drive_generic_geometry_and_survive_compilation(tmp_path, 
     source.write_text(proposed_sources(result.plan)[source])
     compiled = evaluate_zener(source, DEFAULT_PCB_COMPILER)
     assert connectivity_digest(compiled) == connectivity_digest(schematic)
-    rerun = generate_functional_ic_blocks(compiled, plan, allow_experimental_hints=True)
+    rerun = generate_functional_ic_blocks(compiled, plan)
     assert rerun.plan.modules[0].positions == positions
     assert parse_hints(source.read_text()) == parse_hints(HINTS)
 
     # A real but unrelated return endpoint cannot silently expand the wireset.
     source.write_text(source.read_text().replace('"SEC_RET"', '"PRI_RET"'))
     with pytest.raises(ToolchainError, match="unresolved or unsupported"):
-        generate_functional_ic_blocks(compiled, plan, allow_experimental_hints=True)
+        generate_functional_ic_blocks(compiled, plan)

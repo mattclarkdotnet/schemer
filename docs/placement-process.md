@@ -225,8 +225,8 @@ with supply above return. An owned bypass follows its consumer's pin geometry:
 it may lie horizontally beside a north-facing supply pin. Parallel parts on
 the same two rails continue to use the shared bank rule above.
 
-Discover opaque module paths from the viewer's placement inventory, including
-those below transparent wrappers. Complete children before parents, and pack
+Derive circuit membership from authored ownership and the evaluated hierarchy,
+including devices below transparent wrappers. Complete children before parents, and pack
 their measured bounds without also positioning their internals in the parent.
 Keep qualified net identities until display-label formatting. Net-symbol
 metadata belongs in the source that defines the net, not necessarily the
@@ -371,12 +371,10 @@ Same-net wire regions may join inside a block to represent an intentional
 junction. Parent corridors may touch a child boundary but may not intrude into
 the child's local area.
 
-The Zener viewer still owns final wire routing. Reserved wire rectangles are
-therefore a placement contract and an early rejection mechanism, not a second
-schematic renderer. After flattening a validated block plan into a
-`LayoutPlan`, the real viewer remains the oracle for the exact routed result.
-Any recurring mismatch between a reserved corridor and viewer output becomes
-a small block fixture at the earliest responsible composition level.
+The native routing stage owns final wires. Reserved rectangles are a placement
+contract and an early rejection mechanism, not proof of a finished route.
+Inspect the exported KiCad SVG and validate KiCad's interpreted netlist. A
+recurring mismatch becomes a small fixture at the responsible stage.
 
 Distance from a bad seed is never a reason to skip an unambiguous semantic
 attachment. Once topology identifies a series part and its leaf symbol as an
@@ -653,8 +651,8 @@ replace that connection with duplicate labels.
 Rail-body clearance is local to an owner. Independent blocks must not be
 compared in their temporary local coordinates. Do not subsequently move rail
 symbols with a text-spacing pass: complete the wiring, then measure caption
-allowances for block packing. A plain net-label position is currently not a
-reliable wire endpoint in the installed viewer; see the toolchain limitation.
+allowances for block packing. Native labels must attach to actual wire/pin
+endpoints; text placement alone does not establish a connection.
 
 This pass should create a valid first drawing without relying on optimization.
 
@@ -670,8 +668,8 @@ output must be persisted and reviewed before the coordinate pass begins.
 
 Coordinate tweaking belongs here. It may compact local whitespace, align repeated
 items, shorten wires, and reduce bends and crossings.
-Candidate moves and rotations are scored through the real viewer whenever
-possible.
+Score candidate moves and rotations against native drawing geometry, then
+verify the result in the exported SVG.
 
 Top-level packing moves completed groups, not their contents. In native output,
 compare row arrangements by the area of their enclosing standard landscape
@@ -786,7 +784,7 @@ those constraints is rejected even if it reduces aggregate wire length.
 
 Service and mechanical elements are processed only after the electrical
 narrative is stable. The explanatory electrical view may suppress mounting
-holes and redundant rail test points. If the raw extension view must display
+holes and redundant rail test points. If a schematic must display
 them, they occupy a quiet aligned margin and never expand or fragment the main
 electrical layout.
 
@@ -794,25 +792,16 @@ electrical layout.
 
 Every complete candidate is:
 
-1. applied to a Schemer-owned copy or in-memory netlist;
-2. re-evaluated to prove unchanged connectivity;
-3. rendered using the installed Zener extension viewer;
+1. generated from prepared source and a fresh compiler schematic seed;
+2. checked against KiCad's interpreted netlist to prove unchanged connectivity;
+3. exported to SVG using KiCad's CLI;
 4. checked against hard geometry and semantic gates;
-5. captured as both a full-sheet overview and readable detail views; and
-6. regenerated to prove deterministic, idempotent source comments.
+5. inspected as both a full-sheet overview and readable detail views; and
+6. regenerated when verifying deterministic placement after a code change.
 
-The rendered overview is measured at pixel level after capture. Schemer finds
-the actual teal schematic-annotation glyphs emitted by the installed viewer and
-requires a typical height of at least 28 pixels. A coordinate-space estimate
-is retained as diagnostic evidence but cannot pass legibility by itself. The
-current viewer ignores both source-property-only font scaling and VS Code theme
-font-size changes for these annotations, so accepted review evidence is
-captured at 6400×4266. A capture below 28-pixel typical annotation height is
-diagnostic evidence only, not an acceptable readable schematic.
-
-The same pixel analysis records the visible content bounding box and occupancy
-as output-framing diagnostics. They do not feed back into layout or impose a
-page-relative target on the primary IC.
+Use SVG or native KiCad for acceptance. Browser captures and pixel-height gates
+are retired. Do not scale source symbols or text to compensate for a crowded
+drawing; measure the completed content before selecting the standard sheet.
 
 For native KiCad output, use a standard landscape aspect ratio (√2:1) for both
 packing and whole-sheet previews. After packing, use the same completed-drawing
@@ -960,24 +949,15 @@ orientation, but it cannot be the only evidence of legibility.
 Every entrypoint starts from the same process; a board cannot replace or amend
 it with a coordinate profile:
 
-1. discard the selected module's stored `# pcb:sch` positions in memory;
-2. ask the installed Zener viewer to auto-place the root from the evaluated
-   hierarchy and connectivity;
-3. treat a direct child as an opaque one-level block exactly when the root
-   viewer returns a `comp:<child>` position for it; transparent wrappers remain
-   on the parent sheet;
-4. evaluate each opaque child source and ask the same viewer to place its
-   complete module boundary and contents;
-5. map source-local component IDs to the configured parent instance using
-   evaluated component type, reference family, and stable order; if standalone
-   evaluation is unavailable, use the focused parent evaluation;
-6. classify service-only direct children from semantic metadata such as
-   `skip_bom` plus `skip_pos`, never from their names or designators;
-7. normalize symbols, build each IC/connector-local electrical block from its
-   body through wires and attached symbols, then place text;
-8. measure and pack the completed blocks without a page-size target; and
-9. fit the resulting scale-invariant schematic to overview and detail outputs
-   through the real viewer before scoring the candidate.
+1. validate preparation and evaluate the complete source hierarchy;
+2. assign physical components to flat sheets using authored sheet membership;
+3. resolve circuit groups from ownership and representation, not pin count;
+4. discard stored positions in the procedural sheet view;
+5. build each local circuit from source-defined symbols and pin geometry;
+6. route wires and place native fields, labels and rail graphics;
+7. measure and pack completed drawings onto standard sheets;
+8. validate the complete root hierarchy's physical pin membership with KiCad;
+9. export SVG and inspect the whole sheet and readable detail views.
 
 DigitalAbx remains the first full-board integration corpus. Its intended story
 is an acceptance criterion for the generic stages, not executable placement

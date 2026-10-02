@@ -52,7 +52,7 @@ for application and diagram-preparation rules:
 
 - <https://webstore.iec.ch/en/iec_catalog/product/preview/?id=L3B1Yi9wZGYvcHJldmlldy9pbmZvX2llYzYwNjE3e2VkMS4wfWIucGRm>
 
-The Zener viewer and component libraries, rather than Schemer, currently own
+The source component libraries, rather than Schemer, own
 symbol artwork. This source therefore constrains what Schemer should preserve,
 not what its first placement pass can generate.
 
@@ -66,8 +66,8 @@ no-connect meaning; and recommends a 50 mil / 1.27 mm electrical grid:
 
 - <https://docs.kicad.org/10.0/en/eeschema/eeschema.html>
 
-Although Schemer targets the Zener viewer, its inputs use KiCad symbols and the
-same electrical drawing vocabulary. These semantics support hard gates around
+Schemer emits native KiCad schematics using source-defined symbols.
+These semantics support hard gates around
 ambiguous junctions, false graphical connections, explicit unused pins, label
 scope, and grid-aligned placement.
 

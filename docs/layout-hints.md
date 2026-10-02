@@ -11,7 +11,7 @@ not a requirement or a workaround for generator placement defects.
 Before the procedural baseline is generated, a dedicated primary-hinting agent
 completes the source-intent pass defined in
 [`primary-hinting-agent.md`](primary-hinting-agent.md). An independent reviewer then reads
-the actual Zener viewer image against `schematic-layout-principles.md` and its
+the exported native KiCad/SVG drawing against `schematic-layout-principles.md` and its
 own schematic knowledge. It returns ordinary engineering observations with
 component/pin references and an explanation. The coordinator translates
 selected observations into semantic comment records, regenerates the layout,
@@ -382,14 +382,13 @@ uv run python tools/apply_layout_hints.py SOURCE.zen HINTS.zen
 ```
 
 Generate with `layout-project`, then export SVG through KiCad's CLI. Review
-native/vector drawings at readable detail scale; raster capture helpers are
-legacy diagnostics, not the recommended review path. Investigate generator
+native/vector drawings at readable detail scale; raster capture helpers have
+been removed. Investigate generator
 behaviour through direct code audit before using output comparisons.
 
-Legacy `layout` also requires `--preparation-review`; hinted generation requires
-a buildable `--proposal-dir`. Approved types need no experimental flag.
-`--experimental-hints` allows newly implemented types awaiting approval, not
-unknown kinds, stale preparation or prohibited spatial hints.
+Both native layout commands require `--preparation-review`. Unsupported or
+unapproved hint types fail; there is no command-line opt-in that bypasses review,
+stale preparation or the prohibition on spatial hints.
 
 There is no autonomous reviewer, numerical scoring contract or automatic
 hint-type approval. Keep review findings, supporting evidence and unresolved

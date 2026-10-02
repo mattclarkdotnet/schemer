@@ -2,16 +2,14 @@ from __future__ import annotations
 
 import sys
 from collections.abc import Sequence
-from dataclasses import fields
 
-from schemer.cli.commands import doctor, inspect_kicad, layout_kicad, render, report_sheet_plan
+from schemer.cli.commands import inspect_kicad, layout_kicad, report_sheet_plan
 from schemer.cli.parser import build_parser
 from schemer.core.errors import KiCadSchematicError, ToolchainError
 from schemer.integration.toolchain import evaluate_zener
 from schemer.kicad.editor import FileSchematic
 from schemer.workflow.native_project import layout_native_project
 from schemer.workflow.preparation import check_preparation, prepare_source, require_preparation
-from schemer.workflow.proposal import LayoutRequest, layout_source
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -25,16 +23,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         if args.command == "check-preparation":
             print(f"prepared source validated: {check_preparation(args.review, args.compiler)}")
             return 0
-        if args.command == "doctor":
-            return doctor(args)
         if args.command == "plan-sheets":
             return report_sheet_plan(args)
-        if args.command == "render":
-            return render(args)
-        if args.command == "layout":
-            return layout_source(LayoutRequest(**{
-                field.name: getattr(args, field.name) for field in fields(LayoutRequest)
-            }))
         if args.command == "inspect-kicad":
             return inspect_kicad(args)
         if args.command == "layout-kicad":

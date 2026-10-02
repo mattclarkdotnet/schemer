@@ -23,55 +23,12 @@ class BlockCompositionResult:
     applied_hints: tuple[tuple[str, str], ...] = ()
     sheet_hints: tuple[Hint, ...] = ()
 
-    def preserve_completed_modules(self, candidate: LayoutPlan) -> LayoutPlan:
-        """Keep legacy sheet refinements from tearing completed blocks apart."""
-        completed_refs = {ref for ref, _ in self.module_blocks}
-        completed = {
-            module.instance_ref: module
-            for module in self.plan.modules
-            if module.instance_ref in completed_refs
-        }
-        return replace(candidate, modules=tuple(
-            completed.get(module.instance_ref, module) for module in candidate.modules
-        ))
-
-    def as_manifest(self) -> dict[str, object]:
-        modules: list[dict[str, object]] = []
-        for module_ref, block_plan in self.module_blocks:
-            bounds = block_plan.block_bounds()
-            modules.append(
-                {
-                    "block_count": len(bounds),
-                    "blocks": {
-                        path: {
-                            "height": rectangle.height,
-                            "width": rectangle.width,
-                            "x": rectangle.x,
-                            "y": rectangle.y,
-                        }
-                        for path, rectangle in sorted(bounds.items())
-                    },
-                    "finding_count": len(block_plan.findings()),
-                    "module_ref": module_ref,
-                    "symbol_count": len(block_plan.positions()),
-                }
-            )
-        return {
-            "modules": modules,
-            "schema_version": "schemer-block-composition-v1",
-            "hints": [
-                {"module_ref": module, "id": hint_id, "status": "applied"}
-                for module, hint_id in self.applied_hints
-            ],
-        }
-
 
 def generate_functional_ic_blocks(
     schematic: dict[str, Any],
     plan: LayoutPlan,
     *,
     padding: float = 40.0,
-    allow_experimental_hints: bool = False,
 ) -> BlockCompositionResult:
     """Rebuild eligible connector/IC modules from topology and pin geometry.
 
@@ -91,7 +48,7 @@ def generate_functional_ic_blocks(
     applied: list[tuple[str, str]] = []
     sheet_hints: tuple[Hint, ...] = ()
     for module in sorted(plan.modules, key=lambda item: item.instance_ref.count("."), reverse=True):
-        hints = HintSet.from_source(module.source_path, allow_experimental=allow_experimental_hints)
+        hints = HintSet.from_source(module.source_path)
         if module.instance_ref == schematic.get("root_ref"):
             sheet_hints = tuple(hint for hint in hints.hints if hint.kind == "right-of")
             hints = HintSet(tuple(hint for hint in hints.hints if hint.kind != "right-of"))

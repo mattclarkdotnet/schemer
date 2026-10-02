@@ -6,7 +6,6 @@ import pytest
 
 from schemer.core.errors import ToolchainError
 from schemer.source.shadow import find_workspace_root, materialize_proposal_shadow
-from schemer.workflow.proposal import _validate_layout_file_overrides
 
 
 def _write(path: Path, content: str) -> None:
@@ -75,13 +74,3 @@ def test_shadow_refuses_to_write_inside_source_workspace(tmp_path: Path) -> None
 
     with pytest.raises(ToolchainError, match="outside the source Zener workspace"):
         materialize_proposal_shadow(entrypoint, {}, source_root / "proposal")
-
-
-def test_layout_rejects_component_symbol_overrides(tmp_path: Path) -> None:
-    authored_symbol = tmp_path / "Component.kicad_sym"
-    authored_symbol.write_text("authored")
-    with pytest.raises(ToolchainError, match="source-defined component symbols"):
-        _validate_layout_file_overrides({authored_symbol: "replacement"})
-
-    _validate_layout_file_overrides({tmp_path / "NewNetTermination.kicad_sym": "new glyph"})
-    _validate_layout_file_overrides({Path("NetTermination.zen"): "presentation glyph"})

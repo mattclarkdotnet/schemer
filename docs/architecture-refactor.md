@@ -41,8 +41,8 @@ Detailed code inspection follows the responsibilities being moved, not just file
 | `kicad` | Native syntax, document/item model, file editor, native geometry | Circuit placement policy |
 | `native` | Native layout stages, routing, labels/rails, packing | CLI or project orchestration |
 | `source` | Position comments, copied workspaces, symbol projection | Native layout orchestration |
-| `integration` | Compiler, viewer and export subprocess boundaries | Domain ownership decisions |
-| `workflow` | Preparation, proposal, project assembly and review workflows | Low-level geometry implementations |
+| `integration` | Compiler and native export subprocess boundaries | Domain ownership decisions |
+| `workflow` | Preparation and native project assembly | Low-level geometry implementations |
 | `cli` | Argument parsing and dispatch | Placement algorithms |
 
 Shared services must be extracted from their consumers before splitting orchestration.
@@ -86,6 +86,12 @@ motivates retaining the current package layout and testing the distribution outs
 the source checkout.
 
 ## Implemented structure
+
+The measurements and preserved-command statements below record the refactor
+checkpoint. Subsequently, the browser-backed `layout`, `render` and `doctor`
+commands were removed, including proposal/autoplacement, raster review tools,
+browser discovery and dependencies. Native generation retains the shared source
+geometry and preparation services. See the README for the current CLI contract.
 
 All five stages above have been executed. The original 42-module flat package is
 now ten responsibility packages, containing 130 implementation/entrypoint modules

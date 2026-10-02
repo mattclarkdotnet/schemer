@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from copy import deepcopy
-from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -168,7 +167,7 @@ def test_missing_geometry_fails_instead_of_silently_retaining_seed() -> None:
 
 
 @pytest.mark.e2e
-def test_completed_owner_envelopes_grow_with_captions_and_survive_later_passes() -> None:
+def test_completed_owner_envelopes_grow_with_captions() -> None:
     if not DEFAULT_PCB_COMPILER.is_file():
         pytest.skip("local Zener compiler unavailable")
     schematic = evaluate_zener(FIXTURE, DEFAULT_PCB_COMPILER)
@@ -185,19 +184,3 @@ def test_completed_owner_envelopes_grow_with_captions_and_survive_later_passes()
     assert children[0].block.width > old_children[0].block.width
     assert children[1].x > old_children[1].x
     assert children[1].x - children[0].bounds.right == pytest.approx(40.0)
-
-    # Legacy per-symbol spacing/packing cannot dismantle a completed local
-    # composition, including when that composition owns the whole sheet.
-    damaged = replace(
-        generated.plan,
-        modules=(
-            replace(
-                generated.plan.modules[0],
-                positions={"comp:SOURCE": Position(-9000, 5000)},
-            ),
-            ModuleLayout("unsupported", FIXTURE, {"comp:R": Position(10, 20)}),
-        ),
-    )
-    restored = generated.preserve_completed_modules(damaged)
-    assert restored.modules[0] == generated.plan.modules[0]
-    assert restored.modules[1] == damaged.modules[1]

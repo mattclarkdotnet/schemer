@@ -7,10 +7,7 @@ authors = [
     { name = "Matt Clark", email = "matt@mattclark.net" }
 ]
 requires-python = ">=3.12"
-dependencies = [
-    "pillow>=12.3.0",
-    "playwright>=1.62.0",
-]
+dependencies = []
 
 [project.scripts]
 schemer = "schemer.cli:main"
@@ -60,7 +57,6 @@ allowed_importers = ["schemer.cli.commands", "schemer.workflow.native_project"]
 testpaths = ["tests"]
 markers = [
     "e2e: compiler-backed stable Zener fixture tests",
-    "viewer: opt-in actual installed-WASM rendering tests",
 ]
 
 [dependency-groups]

@@ -22,16 +22,15 @@ CLI help. A passing source-checkout suite cannot establish packaging correctness
 `ParallelCapacitors.zen` checks a three-capacitor supply bank with reversed
 terminal order on one capacitor, plus a different-return-domain control.
 Assertions cover aligned bus pins, supply-up orientation, one termination
-per bank rail, domain separation and unchanged connectivity. The installed
-WASM render is also inspected for actual continuous supply and return buses.
+per bank rail, domain separation and unchanged connectivity. Inspect native
+SVG output for actual continuous supply and return buses.
 
 `GeneralBlocks.zen` covers two equal-sized ICs with bypass/load parts and an
 unanchored RC chain, outside the specialised motif recognisers. It checks
 complete, exclusive component coverage, local ownership, valid block bounds,
 seed independence and connectivity. `NestedGeneralBlocks.zen` checks that a
 parent retains and measures its child placement without duplicating parts.
-Seed-discovery tests include an opaque module beneath a transparent wrapper;
-net-label tests ensure nested metadata is written to its defining source.
+Net-label tests ensure nested metadata is written to its defining source.
 The former test expecting an unsupported circuit to pass through unchanged
 now requires an explicit error when symbol geometry is missing.
 
@@ -56,18 +55,11 @@ separate upper/lower supply terminations and conventional symbol orientation.
 The generic connector fixture also checks return glyphs against all passive
 bodies, not just component-to-component overlaps.
 
-The named-endpoint viewer test now includes a zero-width-glyph control and
-measures wire centreline rows as well as the split between local stubs. This
-catches the rectangular detours missed by the previous existence-only check,
-without confusing a thick straight stroke with a bend.
-
 Named-interface regressions in `test_signal_terminations.py` use generic
 fixtures to check connector-owned series rows, the three-distinct-straight-lane
 threshold, source-comment preservation, idempotence and unchanged compiled net
-membership. The opt-in viewer pair checks that explicit endpoints retain two
-visible local wire stubs while the control remains continuously wired.
-`test_layout_pipeline.py` checks final packed rail ownership and connectivity
-against the frozen integration corpus. Bypass clearance may retain the
+membership. Native routing and connectivity tests check that labelled endpoints
+retain the intended local wire connections. Bypass clearance may retain the
 existing `local-passive-owner-gap` advisory: integration tests bound the
 outward reach and preserve the supply row rather than weakening the production
 distance check. No overlap checks are relaxed.
@@ -76,14 +68,13 @@ distance check. No overlap checks are relaxed.
 primary/subordinate connection with branch clearance, and an orthogonal shunt
 approach. The rail-orientation matrix checks all four exit sides for supply
 and ground. These are generic, compiler-backed cases; the production rules
-contain no fixture or board identities. `tests/integration/test_viewer.py` adds an opt-in
-actual-WASM single-L check with a wrong-side approach control. Run these pixel
-checks when routing geometry or the viewer changes, not on every review loop.
+contain no fixture or board identities. Native routing tests check orthogonal
+approaches, pin exits and minimum-turn paths without browser pixel inspection.
 The principles document has its own corpus-identifier regression guard.
 
 The experimental semantic-comment interpreter is protected by
 `tests/source/test_hints.py`. It checks strict non-geometric records, duplicate and
-unsupported requests, explicit experimental opt-in, preamble preservation,
+unsupported requests, rejection of unapproved types, preamble preservation,
 and idempotent metadata installation. The generic parallel-transformer fixture
 then checks changed relative geometry, unchanged component coverage and
 connectivity, source/position recompilation, and independence from seed
@@ -251,14 +242,14 @@ For every fixture, the test:
 For nested modules, source comments deliberately keep local net names. The
 evaluated viewer IDs use the compiler's semantics: public IO resolves to the
 bound net name, while an internal net is scoped as
-`<module-instance>.<local-net>`. Schemer resolves those IDs for in-memory
-renders and requires the result to match a render produced by compiling the
-persisted proposal in an isolated shadow package.
+`<module-instance>.<local-net>`. Source-format tests resolve those IDs in memory
+and require the compiler to accept the persisted positions in an isolated copy.
+This tests the source adapter, not a browser-rendering workflow.
 
 This catches source-format, identifier, placement-comment, determinism, and
 connectivity regressions without depending on mocked compiler output. The
-installed Zener viewer remains the integration oracle for geometry and visual
-hard gates that the compiler cannot detect.
+KiCad-interpreted netlist and exported SVG cover connectivity and visual
+defects that the source compiler cannot detect.
 
 Presentation-policy regressions separately use small generic in-memory
 schematics. They require unique net captions to collapse to local suffixes,
@@ -278,11 +269,9 @@ active-device endpoint name to inherit that name while two electrically
 distinct nets proposing the same functional caption both fall back to their
 unambiguous net names.
 
-Every generated review manifest also records advisory geometry findings for
-simple series-terminal doglegs and compressed repeated banks. These use the
-same viewer-equivalent pin transform as refinement. They do not replace image
-review—labels and routed wires remain viewer-owned—but they make known
-regressions visible and machine-comparable between proposals.
+Geometry tests record advisory findings for series-terminal doglegs and
+compressed repeated banks using the shared source-coordinate pin transform.
+They do not replace SVG review of native labels and routed wires.
 
 A local-wire invariant fixture contains both an entirely internal signal and a
 true module-boundary signal. Generation must remove the internal signal's label
@@ -311,8 +300,8 @@ A separate DigitalAbx integration check applies that generic grammar to the
 symbols authored in its copied component packages. It protects the buffer
 body, the three optical channels, and the transformer/coupling/connector order
 without freezing absolute coordinates. This test evaluates Zener and runs
-deterministic geometry only; PNG generation remains an explicit review step
-when code or presentation changes.
+deterministic geometry only; native SVG review remains necessary when code or
+presentation changes.
 
 The integration corpus uses the pinned ABX snapshot under `.schemer/sources`
 by default. Runs may set `SCHEMER_ABX_WORKSPACE` to another checkout
@@ -331,13 +320,9 @@ terminal is right-facing, and the return terminal is bottom-facing. Selection
 uses terminal connectivity and pin count rather than a part number or
 reference designator.
 
-Pixel-level tests use synthetic Pillow images to verify annotation-component
-measurement and the 28-pixel output-legibility gate. Full-board manifests
-store the measured glyph height, glyph count, content bounds, and occupancy
-from the real viewer PNG. Occupancy is diagnostic because output framing is
-chosen after layout. The pixel test caught the
-earlier false positive where a coordinate estimate predicted 17.5 pixels but
-emitted glyphs were only 8.
+Browser-renderer and Pillow pixel tests have been removed with the legacy
+commands. Native annotation tests use actual field, label and symbol geometry;
+visual review uses readable vector drawings, not pixel-height thresholds.
 
 Generic regressions also prove that excessive signal-connected block gaps
 compact toward the primary without moving it, vertical expansion preserves
@@ -475,18 +460,16 @@ the internal rail, the general-block path, and unchanged connectivity.
 
 Add or change a layout heuristic only with the smallest fixture that explains
 the intended engineering meaning. Once that primitive passes, exercise it in
-DigitalAbx and inspect the actual installed viewer rendering. Board-specific
+the integration corpus and inspect native SVG output. Board-specific
 profiles and corrective coordinate tables are forbidden; corpus intent belongs
 in acceptance documentation and tests, not production behavior.
 
 `test_genericity.py` enforces the architectural boundary by rejecting known
 corpus tokens, module-filename branches, and stored production position tables.
-`test_generic_plan.py` checks that stored comments are ignored, opaque children
-are discovered from viewer output, transparent wrappers remain on the parent,
-shared module sources are generated once, and configured designator offsets are
-mapped from evaluated structure. `test_viewer.py` validates host-message parsing
-without starting a browser; ordinary deterministic tests do not spend model or
-viewer time inspecting unchanged output.
+Native project tests check authored group boundaries, seed-independent placement,
+flat hierarchy assembly and physical connectivity. CLI contract tests reject the
+removed commands and prove that native help imports without browser or raster
+dependencies. Ordinary tests do not spend model time inspecting unchanged output.
 
 The implementation order follows
 [`placement-process.md`](placement-process.md). A fixture for a later geometry
@@ -609,7 +592,6 @@ place the shunt relative to the shared trunk after the exits, not assume that
 collinear physical pins imply the desired route. Keep normal pin definitions.
 
 Completed-owner tests additionally require three independent isolation-chain
-children, a minimum gap outside caption allowances, growth when a local
-caption grows, and preservation through legacy later passes. The actual-WASM
-positive/negative `PinExit.zen` test is opt-in with `SCHEMER_VIEWER_TESTS=1`;
-it checks green wire columns automatically and needs no reasoning over images.
+children, a minimum gap outside caption allowances, and growth when a local
+caption grows. Wire shape is checked by native routing tests and SVG review;
+the former optional WASM pixel tests are retired.
