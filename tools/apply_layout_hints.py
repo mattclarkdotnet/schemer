@@ -3,7 +3,7 @@
 import argparse
 from pathlib import Path
 
-from schemer.hints import replace_hint_preamble
+from schemer.source.hints import replace_hint_preamble
 
 
 def main() -> None:

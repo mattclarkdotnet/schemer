@@ -38,8 +38,12 @@ the task. Give the agent this prompt in full:
 >    return pins, and the purpose of its external support circuit. Use the
 >    source's existing part identity and datasheet field; do not add another
 >    provenance field to prove that the review happened.
-> 3. Correct a wrong generic symbol in the copied component package when a
->    suitable functional KiCad symbol exists. Preserve the electrical pin
+> 3. Reject connector placeholders and numbered boxes used for ICs. Audit
+>    every instantiated active device, not just examples from user feedback.
+>    Correct the shared source package with a suitable functional symbol;
+>    if none is available, curate one against the datasheet before layout.
+>    An unavailable library symbol is not permission to pass the gate with
+>    a placeholder. Preserve the electrical pin
 >    contract and validate the package after the change. Never add a
 >    part-specific symbol substitution to the layout engine.
 > 4. Add only durable intent that changes how the circuit should be
@@ -49,6 +53,24 @@ the task. Give the agent this prompt in full:
 >    the authored symbol cannot preserve a required datasheet grouping. Do not
 >    add explicit spatial placement hints such as `right-of`: the procedural
 >    baseline must choose block positions without them.
+>    Do not represent parallel branches as separate singleton series groups.
+>    Record their function and owning pin or channel; shared nets remain
+>    authoritative in the circuit connectivity.
+>    Measurement tap resistors belong to the circuit they sample, not isolated
+>    one-part groups. If a tapped net joins otherwise independently labelled
+>    device blocks, attach the tap to the receiving circuit; do not introduce
+>    shared wiring between those blocks just to accommodate the tap.
+>    For a multi-sheet drawing, propose a small set of useful circuit sheets.
+>    Related modules may share a `sheet` name; do not allocate a page to each
+>    source module. This records membership only, not positions or page sizes.
+>    Check the split against the rendered layout in the coordinator review.
+>    If materially different schematic representations are reasonable and no
+>    accepted choice exists, present the alternatives to the coordinator for
+>    a user decision before layout. This is a presentation choice, not an
+>    ambiguity in electrical function. Record the selected representation as
+>    durable group or module intent, separately from component roles; do not
+>    change roles to force a drawing style. Reuse the choice on later runs.
+>    Ordinary spacing and routing choices do not require user decisions.
 > 5. Validate every proposed role against evaluated connectivity and datasheet
 >    pin names. Do not infer intent from a reference designator, value, net
 >    name, package, or geometric seed alone. If evidence permits more than one
@@ -81,10 +103,12 @@ procedural generator. The gate passes only when:
 1. the copied entrypoint builds;
 2. component inventory and connectivity are preserved, except for an explicit
    correction to erroneous copied source;
-3. every active device appears in the review worklist;
+3. every active device appears in the review worklist and uses a functional
+   symbol with checked pin names, numbers and grouping; placeholders block layout;
 4. every added field is durable domain intent consumed by layout;
 5. the source contains no review receipts or explicit spatial placement hints; and
-6. no unresolved ownership or circuit-function ambiguity remains.
+6. no unresolved ownership or circuit-function ambiguity remains; and
+7. any material representation alternatives have an accepted user choice.
 
 New role or hint kinds remain experimental throughout that run and are
 presented for human review with the resulting schematic. Repetition of an
@@ -92,6 +116,19 @@ existing role is expected; repeated need for the same relationship should be
 considered later as evidence for a generic procedural rule.
 
 ## Coordinator handoff
+
+Start with `schemer prepare ENTRYPOINT --output RUN`. This copies the dependency
+closure and writes `source-facts.json`, `preparation-review.json` and a worklist
+guide. Review every physical component, including DNP options and electrical
+links excluded from assembly files. Record exceptions only for items that truly
+need no domain annotation, not for unsupported or unresolved circuit intent.
+
+After annotation and review, run `schemer check-preparation RUN/preparation-review.json`.
+It checks worklist completeness, role/representation schema, unchanged evaluated
+inventory/connectivity, and source freshness. Pass `--preparation-review` to
+`layout`, `layout-kicad` or `layout-project`; draft mode does not bypass preparation.
+This is an enforceable workflow handoff, not automated proof of datasheet
+understanding or visual quality. A changed source requires a renewed review.
 
 After the source-intent gate passes, the coordinator runs Schemer's role and
 hint consumers with empty coordinate seeds, followed by the relevant

@@ -86,6 +86,58 @@ the prototype reports stale references instead of guessing.
 The hint preamble survives generated-position replacement and compilation.
 Zener treats these as ordinary comments; electrical connectivity is unchanged.
 
+## Module representation
+
+An accepted presentation choice belongs on the module call:
+
+```python
+properties={"schematic_properties": {
+    "representation": "independent-blocks",
+}}
+```
+
+`independent-blocks` keeps each device and its authored owned support in a
+separate local drawing. Connections between drawings use labels, not shared
+wires. Ownership still applies when support comes from another source module.
+This property can accompany `function` and `sheet`; it supplies no coordinates.
+Within an explicitly selected block, seed labels and wraparound heuristics
+must not split the circuit again. A named interface may terminate the local
+wire tree, while connections to another block remain labelled.
+Explicit unowned role groups also remain intact: independent blocks must not
+split a shared supply bank into one drawing per passive. An unowned shunt bank
+with a common rail is arranged with aligned return terminals and one shared
+rail connection; owned bypasses remain with their consuming devices.
+
+Passive single-terminal rail access follows the rail's natural axis: supplies
+north, ground south. Rotate the component where necessary and place its
+captions opposite the terminal, before considering bent wires or sideways rail
+graphics. The rail corridor starts beyond the component's pin escape; its own
+body must not falsely obstruct that outgoing access ray.
+Unowned testpoints and bare single-terminal passive access pads belong in the
+external-interface bank alongside connectors. Recognize them from semantic
+type or their single-terminal/non-assembly contract, never their reference
+prefix. An explicitly owned probe remains with its circuit.
+
+During initial native placement, default owned passive runs longer than two
+parts to a snake with one part per leg and alternating end connections. The
+threshold is two parts; it is not two parts per leg. Stack horizontal parts vertically with aligned
+reference/value rows beside the snake, outside its connecting turns. Preserve
+electrical order, branch groups and native dimensions. Do not drag a dependent
+branch apart to form the snake; branched networks need their complete local
+arrangement preserved or composed together.
+Detect runs from their connections and roles, not their seed orientation.
+Subsequent individual pin-alignment passes must preserve these complete banks.
+Route short internal links before longer branching trees, and leave at least
+1.27 mm between overlapping parallel wires on distinct nets. For a rail-ended
+shunt, compare both sides of its fixed signal attachment and prefer the side
+with fewer signal-route crossings; its rail symbol points outward locally.
+
+Equivalent blocks reuse a common component arrangement. Equivalence requires
+matching source symbols, role attachments, pin-level connectivity and role-group
+membership. Reference designators, values and net names remain instance-specific.
+Reserve the largest corresponding caption across the family, then validate
+each block's text and wiring. Ambiguous matches are not reused.
+
 ## Component roles and ownership
 
 Component roles preserve authored intent when connectivity permits more than
@@ -153,8 +205,9 @@ the intermediate nets connected to the owner's functional pins, and aligns
 those taps directly with the pin rows. It does not infer divider purpose from
 values or reference names.
 
-The inline roles `series-termination`, `current-limit`, `ac-coupling`, and
-`source-impedance` each record `owner`, `pin`, and `group`. They distinguish
+The inline roles `series-termination`, `current-limit`, `ac-coupling`,
+`source-impedance`, and experimental `gain-setting` each record `owner`, `pin`,
+and `group`. They distinguish
 different electrical purposes that share the same two-terminal topology. The
 generator validates attachment to the exact named owner pin, places the part
 outward on that pin's natural axis, and suppresses a redundant caption on the
@@ -182,9 +235,34 @@ The native consumer validates terminal nets, keeps support with its declared
 owner, and places parallel shunts at their attachment. It does not infer
 ownership from a shared rail. These extensions are not implemented by the
 older whole-module series interpreter described above.
+A lone rail-ended shunt on the wrong side of its declared owner is placed
+outward from the actual pin face, even when the node also has feedback parts.
+Already outward supports retain their local arrangement; do not pull them away
+from another member of their input network merely to minimize pin distance.
 An owned series/shunt pair sharing the same declared group and pin is placed
 as one local network, rather than forcing the series member onto the device's
 pin axis. No spatial hint is needed.
+
+For a `pin-bridge` across opposite side pins of one native unit, parallel
+members form rows outside that unit. An inline output attachment may share
+the node with those bridges. Resolve every owner pin to its actual drawn unit,
+then separate each unit together with its support and captions. Reference
+designator alone is not a sufficient key for native unit geometry.
+Each drawn unit retains its visible reference; only the repeated package value
+is suppressed after the first unit. Keep the first caption local to that unit,
+not centred over the combined envelope of all package units.
+
+Completed-block packing considers shape as well as stable name order: tall
+circuits can sit together above shallow wide banks, followed by the interface
+row. Single-sheet project assembly preserves that completed packing and its
+page framing instead of recomposing it as a navigation overview.
+
+Dedicated multi-unit supply drawings with at least two usable power pins on
+each north/south face and at most one pin on the other faces receive a
+quarter-turn. The supply banks then face left/right; a lone auxiliary pin
+faces south. NC pins do not influence this choice. Mixed-signal units and
+simple two-pin supplies keep their native orientation. This is a geometry
+rule, not a source rotation hint or a part-name lookup.
 
 Power-stage order comes from source symbols' `power_out` → `power_in`
 connections within a module, not a placement hint or a function-name lookup.
@@ -202,7 +280,23 @@ Optional `pin_layout.bottom` entries identify auxiliary access pins that do not
 belong on that perimeter. Schemer requires every component terminal exactly
 once. This is datasheet pinout intent, not a set of coordinates.
 
+## Sheet membership (experimental)
+
+A module's `schematic_properties.sheet` names the circuit sheet it belongs to.
+Descendants inherit it; modules naming the same sheet share a page. Unassigned
+modules remain on the root. It specifies no coordinates, paper size or relative
+placement. See [Schematic hierarchy](schematic-hierarchy.md) for the rules.
+
 ## Module function
+
+An accepted `representation: "connected-circuit"` on a module keeps its device
+assemblies in one directly wired circuit, for example an outer feedback loop
+spanning multiple amplifiers. Ownership and local support roles are unchanged.
+External connector assemblies remain locally labelled. The most specific
+module representation wins, so explicitly independent subcircuits stay independent.
+This is a user-selected electrical presentation boundary, not a placement hint.
+At an entrypoint, Zener's `builtin.add_property("schematic_properties", {...})`
+can attach that module-level intent without introducing a wrapper hierarchy.
 
 A module instantiation may describe the function it serves in its parent:
 
@@ -279,35 +373,29 @@ removed on 2026-09-23 so that the baseline exercises generic block packing.
 
 ## Running an experiment
 
-Work in a Schemer-owned source copy. Install a comments-only hint file with:
+Follow the [prepared-source workflow](../README.md#recommended-workflow), including
+the complete symbol/intent review and preparation seal. Install a comments-only
+hint file in the copied source before sealing:
 
 ```console
 uv run python tools/apply_layout_hints.py SOURCE.zen HINTS.zen
-uv run schemer layout ENTRYPOINT.zen \
-  --proposal-dir artifacts/run/proposal --render artifacts/run/overview.png --zoom 1
-uv run python tools/capture_hint_review.py \
-  artifacts/run/proposal/boards/BOARD/ENTRYPOINT.zen artifacts/run \
-  --module MODULE --width 8000 --height 6000
 ```
 
-Approved types work without an experimental flag. Add `--experimental-hints`
-when testing newly implemented types awaiting review; the flag does not approve
-them. Hinted generation requires a buildable proposal directory. Unknown kinds
-still fail explicitly, even with the flag. No-hint generation retains its
-previous behavior.
+Generate with `layout-project`, then export SVG through KiCad's CLI. Review
+native/vector drawings at readable detail scale; raster capture helpers are
+legacy diagnostics, not the recommended review path. Investigate generator
+behaviour through direct code audit before using output comparisons.
 
-The capture helper records source hints, connectivity digest, component
-inventory, image hash, text measurements, and existing geometry findings.
-Its output is diagnostic. Normal `--review-dir` acceptance gates are unchanged.
-Geometry is measured in the actual sheet hierarchy, before focusing an image.
-Omit `--module` from the capture command to measure and capture the full sheet.
+Legacy `layout` also requires `--preparation-review`; hinted generation requires
+a buildable `--proposal-dir`. Approved types need no experimental flag.
+`--experimental-hints` allows newly implemented types awaiting approval, not
+unknown kinds, stale preparation or prohibited spatial hints.
 
-The coordinator currently runs this sequence with an independent Sol/high
-reviewer. There is no autonomous scheduler, numerical scoring contract, or
-automatic hint-type approval. A run ends with before/after evidence,
-unresolved findings, and new types for Matt to review.
+There is no autonomous reviewer, numerical scoring contract or automatic
+hint-type approval. Keep review findings, supporting evidence and unresolved
+questions in run artifacts, separate from durable source intent.
 
 First-run metadata:
-[`../experiments/hint-review-01/spdif-hints.zen`](../experiments/hint-review-01/spdif-hints.zen).
+`../experiments/hint-review-01/spdif-hints.zen` (development run record; not included in this snapshot).
 First-run findings:
-[`reviews/semantic-hints-20260907.md`](reviews/semantic-hints-20260907.md).
+`reviews/semantic-hints-20260907.md` (development run record; not included in this snapshot).

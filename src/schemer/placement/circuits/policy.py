@@ -1,0 +1,45 @@
+from __future__ import annotations
+
+SIGNAL_STUB = 240.0
+CONNECTOR_STUB = 240.0
+SERIES_PITCH = 100.0
+SERIES_ANNOTATION_PITCH = 90.0
+SERIES_LANE_OFFSET = 50.0
+STAGGER = 100.0
+LOCAL_GAP = 20.0
+NET_SYMBOL_STUB = 80.0
+LOCAL_RAIL_STUB = 40.0
+
+
+# Installed viewer's minimum outward pin escape: 50 mil = 1.27 mm.
+# A fan-in trunk starts here, not on the bank's physical pin endpoints.
+PIN_EXIT_STUB = 12.7
+PIN_CLUSTER_GAP = 60.0
+DEVICE_STUB = 180.0
+BRANCH_STUB = 80.0
+LOCAL_BRANCH_SPAN = 3 * NET_SYMBOL_STUB
+PASSIVE_CHAIN_GAP = 40.0
+PASSIVE_CHAIN_OWNER_GAP = 160.0
+DIVIDER_COMPONENT_GAP = 40.0
+DIVIDER_OWNER_GAP = 100.0
+DIVIDER_TAP_STUB = 60.0
+BYPASS_OWNER_GAP = 80.0
+BYPASS_CLEARANCE_STEP = 80.0
+ROLE_SERIES_GAP = 100.0
+ROLE_SHUNT_STUB = 120.0
+PULLUP_STUB = 320.0
+PULLUP_RAIL_STUB = 80.0
+PULLDOWN_OUTWARD_STUB = 160.0
+PULLDOWN_LANE_GAP = 100.0
+PULLDOWN_VERTICAL_STUB = 100.0
+POWER_FEED_STUB = 180.0
+INLINE_ROLE_STUB = 160.0
+INLINE_KINDS = frozenset(
+    {
+        "series-termination",
+        "current-limit",
+        "ac-coupling",
+        "source-impedance",
+        "gain-setting",
+    }
+)

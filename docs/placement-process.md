@@ -27,16 +27,92 @@ device and its datasheet, and writes durable module functions, component roles,
 ownership and symbol corrections before the procedural generator runs. It does
 not place or render the schematic.
 
+The CLI handoff is `prepare` → reviewed source annotations → `check-preparation`
+→ layout with `--preparation-review`. An unannotated input must complete this
+first, even for a draft. Worklist evidence belongs in the run directory, not
+source receipt fields. See the primary-hinting guide for the completion gate.
+
 The complete task prompt and completion gate are defined in
 [`primary-hinting-agent.md`](primary-hinting-agent.md). A layout run may not
 start while that task has an unresolved ownership or circuit-function
-ambiguity. Subsequent coordinate-only iterations reuse the accepted intent;
+ambiguity, or a material representation choice awaiting the user.
+Subsequent coordinate-only iterations reuse the accepted intent;
 they do not pay for another datasheet review unless relevant source changes.
 The coordinator then runs the role consumers and integration suite before the
 first render. Connectivity, coverage, role validity and objective overlap
 checks remain hard invariants. Heuristic spacing and proximity findings are
 reported with the render; the human reviewer decides whether the layout is
 acceptable.
+
+When a circuit admits materially different schematic representations, the
+coordinator asks the user to choose before generating coordinates. Store the
+choice as group or module presentation intent, distinct from electrical roles
+and functions. It selects how the circuit is shown, not exact positions or
+distances. Reuse the accepted choice; do not ask again on each pass or silently
+switch representations to work around a generator defect. Routine geometric
+decisions remain procedural.
+
+By default, authored owner/support assemblies form local circuit boundaries:
+wire within each assembly and label connections between assemblies. Follow
+ownership transitively, including through supporting transistors; neither pin
+count nor repetition establishes a circuit boundary. Unowned parts with an
+authored role group form a local circuit within that group's declaring scope;
+the same group name in another source module does not join the circuits. A
+source module containing several assemblies is not a command to wire them all
+together. Unassigned parts retain their module grouping; unresolved membership
+is a source-preparation question, not permission to infer ownership from adjacent
+nets. Resolve this partition before placing anything, and use it for both local
+placement and native wiring. Lay out every circuit independently, including a
+single series component with its shunts and owned branches. Do not place a
+whole sheet by connectivity and then repair selected groups afterwards.
+
+Local placement, label fitting, routing and final validation share the same
+component-body and full-label envelopes. Boxed labels include their flag and
+connection tip, not only their text. Speculative routes can rank label choices
+but are not immutable obstacles; the final router must respect the selected
+labels. Completed drawings are checked for label/body, label/label and
+wire/body intersections before packing. A failed draft route is omitted and
+reported as incomplete, never retained as a body-crossing fallback wire.
+
+An accepted `independent-blocks` representation additionally separates otherwise
+unowned components. Structurally equivalent
+blocks share relative component positions and orientations, with caption space
+reserved for the widest corresponding instance. Match source symbols, roles
+and pin-level connectivity, not reference numbering or component values.
+Text and wire clearance still require validation for each instance. Preserve
+authored bank membership through annotation placement; do not reconstruct it
+from an assumed pin pitch.
+
+Conversely, a user-selected `connected-circuit` representation retains direct
+connections across device assemblies within that module, such as a composite
+feedback loop. It does not change ownership, roles or component positions.
+Connector assemblies remain separate; a more specific child representation
+takes precedence.
+
+Before coordinates are generated, build a procedural structural inventory from
+source symbols, authored ownership/groups and pin-level connectivity. Pass the
+same inventory to native layout and include it in the review report with a
+readable correspondence worklist. Exact owner-block and authored-group matches
+are distinct from weaker same-symbol cohorts. Values and net names are not
+matching criteria; ambiguous correspondences are reported rather than guessed.
+Detection does not assign roles, split blocks or choose a representation.
+Local geometry reuse does not require an independent-block representation.
+Use exact correspondences to share local arrangements while retaining the
+existing electrical groups and connections. For repeated authored series
+groups, construct a compact pin-aligned channel and reuse it as aligned rows;
+do not copy a scattered seed merely to make its mistakes consistent.
+Representation choices govern wiring between blocks, not permission to reuse
+component geometry. Each instance still needs clearance and routing checks.
+The judge compares corresponding instances for consistent presentation and
+missed reuse opportunities, but still inspects every local group and the whole
+sheet: this bounded inventory is neither exhaustive nor a visual acceptance gate.
+
+For a multi-sheet experiment, inspect the source-driven
+[hierarchy plan](schematic-hierarchy.md) after primary hinting and before
+coordinate placement. Preserve complete owned networks and verify connectivity
+across the entire generated hierarchy, not merely within each sheet. Use one
+root and one level of circuit sheets; group related sheets by name rather
+than reproducing the source's nesting depth.
 
 ## Mandatory datasheet preparation
 
@@ -740,8 +816,12 @@ page-relative target on the primary IC.
 
 For native KiCad output, use a standard landscape aspect ratio (√2:1) for both
 packing and whole-sheet previews. After packing, use the same completed-drawing
-bounds to choose the smallest standard sheet with a 10 mm outer margin; paper
-size does not set component scale. Export review SVGs without the drawing sheet.
+bounds to choose the smallest standard sheet. Keep the drawing at least 20 mm
+from the paper edge (inside KiCad's default frame and coordinate band), clear
+the title block, and centre the packed drawing in the usable sheet area. Test
+the actual block envelopes against the title block rather than reserving an
+empty strip across the whole page. Paper size does not set component scale.
+Inspect a frame-inclusive export as well as borderless review SVGs.
 A tighter preview frame must retain the standard ratio and contain the complete drawing.
 Do not stretch the drawing or crop it into a panorama.
 
@@ -762,11 +842,22 @@ acceptable.
 Signal labels must account for local bodies and component captions. They may
 move outward on their existing pin axis when that clears an obstruction.
 On a straight connection between opposing pins, keep the label between those
-pins. Reserve its measured width, including adjacent component captions, before
+pins, on either axis; rotate the text for vertical connections. Reserve its
+measured width, including adjacent component captions, before
 routing; do not place it beyond the far pin inside the connected device.
 Preserve net-label vertical justification in the adapter and collision bounds.
 An inline local label sits above its wire with bottom alignment, not centred
 on the conductor.
+On compound nodes, prefer a label position on the existing clear connection
+over introducing a new branch or moving the trunk. Check both the text and its
+electrical anchor against actual pin strokes and bodies. Text movement comes
+before wire detours.
+
+An authored series path must leave room for all shunts at a node before the
+next series stage. Preserve that ordered geometry through native alignment;
+do not independently pull a shunt across neighbouring nodes. Exclusive pin
+attachments are assessed within their authored circuit, not against remote
+connector endpoints that will be connected by labels.
 
 Native local placement uses actual KiCad pin endpoints. An authored bypass on
 a north-facing supply pin branches horizontally; put the supply arrow on the
@@ -980,5 +1071,5 @@ the child; component-body rectangles remain a separate collision check.
 
 For a parallel bank feeding a vertical shunt, align the shunt with the shared
 trunk after the renderer's required outward pin escapes, not with the bank's
-physical endpoint column. The [two-fix record](reviews/two-generator-fixes-20260907.md)
+physical endpoint column. The two-fix record (development run record; not included in this snapshot)
 documents the calibrated viewer distance, regressions and rendered evidence.

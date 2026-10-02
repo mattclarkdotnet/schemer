@@ -11,12 +11,14 @@ import hashlib
 import json
 from pathlib import Path
 
-from schemer.hints import parse_hints
-from schemer.quality import all_quality_findings
-from schemer.render_metrics import rendered_overview_metrics
-from schemer.toolchain import ToolchainError, connectivity_digest, evaluate_zener, resolve_toolchain
-from schemer.view_policy import electrical_view, focus_module
-from schemer.viewer import render_schematic
+from schemer.analysis.quality import all_quality_findings
+from schemer.analysis.topology import connectivity_digest
+from schemer.analysis.visibility import electrical_view, focus_module
+from schemer.core.errors import ToolchainError
+from schemer.integration.render_metrics import rendered_overview_metrics
+from schemer.integration.toolchain import evaluate_zener, resolve_toolchain
+from schemer.integration.viewer import render_schematic
+from schemer.source.hints import parse_hints
 
 
 def main() -> None:

@@ -27,6 +27,35 @@ extend-exclude = ["artifacts", "**/.pcb"]
 [tool.ruff.lint]
 select = ["E", "F", "I", "N", "UP"]
 
+[tool.importlinter]
+root_package = "schemer"
+
+[[tool.importlinter.contracts]]
+name = "Application dependencies flow toward geometry and values"
+type = "layers"
+containers = ["schemer"]
+exhaustive = true
+layers = [
+    "cli",
+    "workflow",
+    "native | placement | integration",
+    "source",
+    "analysis | kicad",
+    "symbols",
+    "core",
+]
+
+[[tool.importlinter.contracts]]
+name = "No cycles between responsibilities, including nested packages"
+type = "acyclic_siblings"
+ancestors = ["schemer"]
+
+[[tool.importlinter.contracts]]
+name = "Native services never depend on their orchestrator"
+type = "protected"
+protected_modules = ["schemer.native.pipeline"]
+allowed_importers = ["schemer.cli.commands", "schemer.workflow.native_project"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 markers = [
@@ -36,6 +65,7 @@ markers = [
 
 [dependency-groups]
 dev = [
+    "import-linter>=2.15",
     "pytest>=9.1.1",
     "ruff>=0.16.5",
 ]

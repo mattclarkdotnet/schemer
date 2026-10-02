@@ -1,0 +1,15 @@
+"""Assembly-excluded electrical parts are not automatically service-only."""
+
+TestPoint = Module("@stdlib/generics/TestPoint.zen")
+SolderJumper = Module("@stdlib/generics/SolderJumper.zen")
+
+INPUT = Net("INPUT")
+OUTPUT = Net("OUTPUT")
+TestPoint(
+    name="INPUT_PAD",
+    P1=INPUT,
+    variant="THTPad_D2.0mm_Drill1.0mm",
+    properties={"schematic_properties": {"function": "external-input"}},
+)
+SolderJumper(name="LINK", P1=INPUT, P2=OUTPUT, style="Open", variant="Pad")
+TestPoint(name="PROBE", P1=OUTPUT, variant="Pad_D1.0mm")

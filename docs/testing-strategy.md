@@ -1,5 +1,24 @@
 # Semantic layout testing strategy
 
+## Test organization and architecture checks
+
+Tests are grouped by responsibility under `tests/{core,symbols,analysis,placement,
+source,kicad,native,integration,workflow,architecture}`. Older entries below use
+the original test filenames; the relevant package now owns those tests. Shared
+synthetic schematics are in `tests/support`, while `tests/paths.py` provides stable
+fixture paths independent of test nesting. Production fixtures remain generic.
+
+Run `uv run pytest` and `uv run ruff check src tests tools`. The architecture suite
+runs the Import Linter contracts in `pyproject.toml`, imports every package module,
+and rejects private cross-module services and self-imports. Run those dependency
+contracts directly with `uv run lint-imports --no-cache`.
+
+Distribution verification is separate: build with `uv build`, install the wheel
+in an isolated uv environment outside the checkout, import the package and exercise
+CLI help. A passing source-checkout suite cannot establish packaging correctness.
+
+## Behavioural fixtures
+
 `ParallelCapacitors.zen` checks a three-capacitor supply bank with reversed
 terminal order on one capacitor, plus a different-return-domain control.
 Assertions cover aligned bus pins, supply-up orientation, one termination
@@ -57,13 +76,13 @@ distance check. No overlap checks are relaxed.
 primary/subordinate connection with branch clearance, and an orthogonal shunt
 approach. The rail-orientation matrix checks all four exit sides for supply
 and ground. These are generic, compiler-backed cases; the production rules
-contain no fixture or board identities. `tests/test_viewer.py` adds an opt-in
+contain no fixture or board identities. `tests/integration/test_viewer.py` adds an opt-in
 actual-WASM single-L check with a wrong-side approach control. Run these pixel
 checks when routing geometry or the viewer changes, not on every review loop.
 The principles document has its own corpus-identifier regression guard.
 
 The experimental semantic-comment interpreter is protected by
-`tests/test_hints.py`. It checks strict non-geometric records, duplicate and
+`tests/source/test_hints.py`. It checks strict non-geometric records, duplicate and
 unsupported requests, explicit experimental opt-in, preamble preservation,
 and idempotent metadata installation. The generic parallel-transformer fixture
 then checks changed relative geometry, unchanged component coverage and
@@ -295,10 +314,11 @@ without freezing absolute coordinates. This test evaluates Zener and runs
 deterministic geometry only; PNG generation remains an explicit review step
 when code or presentation changes.
 
-The integration corpus uses the included `tests/fixtures/sample-board`
-snapshot. Runs may set `SCHEMER_SAMPLE_WORKSPACE` to another copy explicitly.
-Integration expectations describe a stable fixture, not a board under active
-development.
+The integration corpus uses the pinned ABX snapshot under `.schemer/sources`
+by default. Runs may set `SCHEMER_ABX_WORKSPACE` to another checkout
+explicitly. The default must not follow the live ABX workspace: integration
+expectations describe one stable source revision, not whatever happens to be
+under active development.
 
 Presentation-name regressions also prove that rails retain their net names and
 that a one-letter device pin such as `G`, `D`, or `S` cannot replace a useful
@@ -571,7 +591,7 @@ is not an integration requirement.
 The earlier fixed-offset transformer-shunt rejection was confounded by later
 sheet packing dismantling the fixture's local geometry. The corrected test
 now preserves the block and checks the normal outward pin exit plus alignment
-to the resulting trunk. See the [two-fix follow-up](reviews/two-generator-fixes-20260907.md).
+to the resulting trunk. See the two-fix follow-up (development run record; not included in this snapshot).
 
 The September 7 user review invalidated an earlier whole-sheet pass despite
 passing automated tests. In particular, `local-passive-owner-gap` and body-only

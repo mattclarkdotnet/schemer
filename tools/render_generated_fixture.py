@@ -3,10 +3,10 @@
 import argparse
 from pathlib import Path
 
-from schemer.block_generation import generate_functional_ic_blocks
-from schemer.layout import LayoutPlan, ModuleLayout
-from schemer.toolchain import evaluate_zener, resolve_toolchain
-from schemer.viewer import render_schematic
+from schemer.core.layout import LayoutPlan, ModuleLayout
+from schemer.integration.toolchain import evaluate_zener, resolve_toolchain
+from schemer.integration.viewer import render_schematic
+from schemer.placement.pipeline import generate_functional_ic_blocks
 
 parser = argparse.ArgumentParser()
 parser.add_argument("source", type=Path)

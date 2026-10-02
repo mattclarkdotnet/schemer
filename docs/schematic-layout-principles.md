@@ -26,6 +26,9 @@ implementation process is in [placement-process.md](placement-process.md).
    and out-and-back hooks.
 5. A wire may not cross a component body or unrelated annotation. Text,
    component bodies and unrelated local groups must not overlap.
+   This applies to every symbol graphic, including rail symbols, and to
+   wires on the symbol's own net. Meet only intended connection points;
+   electrical continuity does not permit a wire through a graphic.
 6. A local circuit must be understandable without knowing its intended
    function beforehand. Distinct components, rail symbols and their named
    nodes must not read as a composite or malformed symbol merely because
@@ -49,7 +52,10 @@ implementation process is in [placement-process.md](placement-process.md).
 5. Use hierarchy only where it helps explain the circuit. Expand useful
    internal circuitry together; thin wrappers need not create extra visual
    boundaries. Place completed groups as units rather than scattering their
-   descendants.
+   descendants. Source modules are not automatic sheet boundaries: combine
+   small related sections onto shared sheets. Terminate cross-sheet signals
+   on the circuit itself, not in detached banks repeating the same net names.
+   Overview sheet boxes provide navigation, not another copy of each net name.
 6. Make electrical domains and isolation boundaries evident. Do not
    interleave support circuitry belonging to opposite sides of a barrier.
 
@@ -232,6 +238,10 @@ and its completed branches and terminations.
    label beside a continuing wire or on a clear stub, never across the wire.
    Move text to resolve an annotation collision rather than bending an
    otherwise sensible connection.
+9. Give boxed cross-sheet labels breathing room wherever their branches can
+   move. When close stacking is unavoidable at device pins, align the labels'
+   connection tips on a common line, retaining straight exits and clearance.
+   Do not stagger their tips merely because the names have different lengths.
 
 ## 7. Validate the drawing, not just its coordinates
 
@@ -266,11 +276,20 @@ simplify the wiring while preserving useful local topology, following §4.
 Assess these structural issues before minor caption polish. Passing the hard
 electrical-clarity and collision gates alone is not overall layout acceptance.
 
+Use the structural inventory as a review worklist, not as a verdict. Compare
+the listed corresponding components and branches for consistent presentation.
+Same-symbol cohorts alone do not prove circuit equivalence; actual values,
+external connections and authored intent can justify differences. Report
+missed repetitions as well as problems in listed families. An inventory does
+not authorize a different representation or replace whole-sheet inspection.
+
 Inspect the whole sheet and readable details of every local group. Check:
 
 1. Wire crossings, component-body crossings, symbol-to-wire contacts and
    dangling tails. Distinguish the actual netlist from what the drawing
    appears to connect.
+   Include same-net wire/graphic overlaps and near-parallel strokes that
+   visually merge despite distinct centreline coordinates.
    Read each local circuit as an unfamiliar reader: can its components,
    polarity and named nodes be distinguished without reconstructing intent?
    Geometrically separate symbols can still form an unintelligible drawing.
