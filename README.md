@@ -186,6 +186,30 @@ directories immutable and review files outside them. A useful handoff includes:
 | Independent review | Exact candidate, prepared source, reports, drawing guidance | Numbered findings, coverage and limitations; no source or layout edits |
 | Fix round | Human-approved findings and exact candidate/review paths | Generic corrections, tests and a new candidate for another independent review |
 
+### Repository skill
+
+This checkout includes a thin [Schemer skill](.agents/skills/schemer/SKILL.md).
+It selects the requested pass and reads the guidance here instead of maintaining
+a second copy of the prompts or annotation syntax.
+
+With Codex working in this checkout, invoke it as `$schemer` and supply the
+circuit or candidate path, which can be outside the Schemer repository:
+
+```text
+Use $schemer to prepare and annotate /path/to/Board.zen in artifacts/first-run.
+Stop after preparation validation; do not generate a layout yet.
+```
+
+```text
+Use $schemer to review artifacts/first-run/candidate-1, using its prepared source
+and reports. Save the review outside the candidate directory. Do not make fixes.
+```
+
+Codex discovers repository skills under `.agents/skills`; see
+[skill discovery](https://learn.chatgpt.com/docs/build-skills#where-codex-loads-local-skills).
+Other agents can read the linked skill file directly. Keep it with the checkout
+so its references resolve. No global skill installation is required.
+
 ### Annotation agent prompt
 
 Use this after step 1 has created the preparation directory. If asking an agent
